@@ -569,7 +569,7 @@ CORE_STATUS coreStep(void) {
 		case 0x80:
 			// MOV Rn, Rm
 			CycleCount = 1;
-			src = GR.rs[regNum];
+			src = GR.rs[(CodeWord >> 4) & 0x0f];
 
 			PSW.Z = IS_ZERO(src);
 			PSW.S = SIGN8(src);
