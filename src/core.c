@@ -284,6 +284,47 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 }
 
 
+// Gets pointer to current EPSW
+PSW_t* getCurrEPSW(void) {
+	switch( PSW.ELevel ) {
+		case 2:
+			return &EPSW2;
+		case 3:
+			return &EPSW3;
+		default:
+			return &EPSW1;
+	}
+}
+
+// Gets pointer to current ELR
+PC_t* getCurrELR(void) {
+	switch( PSW.ELevel ) {
+		case 1:
+			return &ELR1;
+		case 2:
+			return &ELR2;
+		case 3:
+			return &ELR3;
+		default:
+			return &LR;
+	}
+}
+
+// Gets pointer to current ECSR
+SR_t* getCurrECSR(void) {
+	switch( PSW.ELevel ) {
+		case 1:
+			return &ECSR1;
+		case 2:
+			return &ECSR2;
+		case 3:
+			return &ECSR3;
+		default:
+			return &LCSR;
+	}
+}
+
+
 // Zeros all registers
 CORE_STATUS coreZero(void) {
 	DSR = 0;
@@ -383,7 +424,8 @@ CORE_STATUS coreDispRegs(void) {
 CORE_STATUS coreStep(void) {
 	CORE_STATUS retVal = CORE_OK;
 	CycleCount = 0;
-	uint8_t decodeIndex, regNum;
+	uint8_t decodeIndex, regNumDest, regNumSrc;
+	uint16_t immNum;
 	bool isEAInc = false;
 	bool isDSRSet = false;
 
@@ -402,7 +444,9 @@ CORE_STATUS coreStep(void) {
 	PC = (PC + 2) & 0xfffe;
 
 	decodeIndex = ((CodeWord >> 8) & 0xf0) | (CodeWord & 0x0f);
-	regNum = (CodeWord >> 8) & 0x0f;
+	regNumDest = (CodeWord >> 8) & 0x0f;
+	regNumSrc = (CodeWord >> 4) & 0x0f;
+	immNum = CodeWord & 0xff;
 	switch( decodeIndex ) {
 		case 0x00:
 		case 0x01:
@@ -422,10 +466,10 @@ CORE_STATUS coreStep(void) {
 		case 0x0f:
 			// MOV Rn, #imm8
 			CycleCount = 1;
-			GR.rs[regNum] = CodeWord & 0xff;
+			GR.rs[regNumDest] = immNum;
 
-			PSW.Z = IS_ZERO(CodeWord & 0xff);
-			PSW.S = SIGN8(CodeWord);
+			PSW.Z = IS_ZERO(immNum);
+			PSW.S = SIGN8(immNum);
 			break;
 
 		case 0x10:
@@ -446,9 +490,9 @@ CORE_STATUS coreStep(void) {
 		case 0x1f:
 			// ADD Rn, #imm8
 			CycleCount = 1;
-			dest = GR.rs[regNum];
-			src = CodeWord & 0xff;
-			GR.rs[regNum] = _ALU(dest, src, _ALU_ADD);
+			dest = GR.rs[regNumDest];
+			src = immNum;
+			GR.rs[regNumDest] = _ALU(dest, src, _ALU_ADD);
 			break;
 
 		case 0x20:
@@ -470,8 +514,8 @@ CORE_STATUS coreStep(void) {
 			// AND Rn, #imm8
 			CycleCount = 1;
 			dest = GR.rs[(CodeWord >> 8) & 0x0f];
-			src = (CodeWord & 0xff);
-			GR.rs[regNum] = _ALU(dest, src, _ALU_AND);
+			src = (immNum);
+			GR.rs[regNumDest] = _ALU(dest, src, _ALU_AND);
 			break;
 
 		case 0x30:
@@ -492,9 +536,9 @@ CORE_STATUS coreStep(void) {
 		case 0x3f:
 			// OR Rn, #imm8
 			CycleCount = 1;
-			dest = GR.rs[regNum];
-			src = (CodeWord & 0xff);
-			GR.rs[regNum] = _ALU(dest, src, _ALU_OR);
+			dest = GR.rs[regNumDest];
+			src = (immNum);
+			GR.rs[regNumDest] = _ALU(dest, src, _ALU_OR);
 			break;
 
 		case 0x40:
@@ -515,9 +559,9 @@ CORE_STATUS coreStep(void) {
 		case 0x4f:
 			// XOR Rn, #imm8
 			CycleCount = 1;
-			dest = GR.rs[regNum];
-			src = (CodeWord & 0xff);
-			GR.rs[regNum] = _ALU(dest, src, _ALU_XOR);
+			dest = GR.rs[regNumDest];
+			src = (immNum);
+			GR.rs[regNumDest] = _ALU(dest, src, _ALU_XOR);
 			break;
 
 		case 0x50:
@@ -538,8 +582,8 @@ CORE_STATUS coreStep(void) {
 		case 0x5f:
 			// CMPC Rn, #imm8
 			CycleCount = 1;
-			dest = GR.rs[regNum];
-			src = CodeWord & 0xff;
+			dest = GR.rs[regNumDest];
+			src = immNum;
 			_ALU(dest, src, _ALU_CMPC);
 			break;
 
@@ -561,9 +605,9 @@ CORE_STATUS coreStep(void) {
 		case 0x6f:
 			// ADDC Rn, #imm8
 			CycleCount = 1;
-			dest = GR.rs[regNum];
-			src = CodeWord & 0xff;
-			GR.rs[regNum] = _ALU(dest, src, _ALU_ADDC);
+			dest = GR.rs[regNumDest];
+			src = immNum;
+			GR.rs[regNumDest] = _ALU(dest, src, _ALU_ADDC);
 			break;
 
 		case 0x70:
@@ -584,153 +628,153 @@ CORE_STATUS coreStep(void) {
 		case 0x7f:
 			// CMP Rn, #imm8
 			CycleCount = 1;
-			dest = GR.rs[regNum];
-			src = CodeWord & 0xff;
+			dest = GR.rs[regNumDest];
+			src = immNum;
 			_ALU(dest, src, _ALU_CMP);
 			break;
 
 		case 0x80:
 			// MOV Rn, Rm
 			CycleCount = 1;
-			src = GR.rs[(CodeWord >> 4) & 0x0f];
+			src = GR.rs[regNumSrc];
 
 			PSW.Z = IS_ZERO(src);
 			PSW.S = SIGN8(src);
 
-			GR.rs[regNum] = src;
+			GR.rs[regNumDest] = src;
 			break;
 
 		case 0x81:
 			// ADD Rn, Rm
 			CycleCount = 1;
-			dest = GR.rs[regNum];
-			src = GR.rs[(CodeWord >> 4) & 0x0f];
-			GR.rs[regNum] = _ALU(dest, src, _ALU_ADD);
+			dest = GR.rs[regNumDest];
+			src = GR.rs[regNumSrc];
+			GR.rs[regNumDest] = _ALU(dest, src, _ALU_ADD);
 			break;
 
 		case 0x82:
 			// AND Rn, Rm
 			CycleCount = 1;
-			dest = GR.rs[regNum];
-			src = GR.rs[(CodeWord >> 4) & 0x0f];
-			GR.rs[regNum] = _ALU(dest, src, _ALU_AND);
+			dest = GR.rs[regNumDest];
+			src = GR.rs[regNumSrc];
+			GR.rs[regNumDest] = _ALU(dest, src, _ALU_AND);
 			break;
 
 		case 0x83:
 			// OR Rn, Rm
 			CycleCount = 1;
-			dest = GR.rs[regNum];
-			src = GR.rs[(CodeWord >> 4) & 0x0f];
-			GR.rs[regNum] = _ALU(dest, src, _ALU_OR);
+			dest = GR.rs[regNumDest];
+			src = GR.rs[regNumSrc];
+			GR.rs[regNumDest] = _ALU(dest, src, _ALU_OR);
 			break;
 
 		case 0x84:
 			// XOR Rn, Rm
 			CycleCount = 1;
-			dest = GR.rs[regNum];
-			src = GR.rs[(CodeWord >> 4) & 0x0f];
-			GR.rs[regNum] = _ALU(dest, src, _ALU_XOR);
+			dest = GR.rs[regNumDest];
+			src = GR.rs[regNumSrc];
+			GR.rs[regNumDest] = _ALU(dest, src, _ALU_XOR);
 			break;
 
 		case 0x85:
 			// CMPC Rn, Rm
 			CycleCount = 1;
-			dest = GR.rs[regNum];
-			src = GR.rs[(CodeWord >> 4) & 0x0f];
+			dest = GR.rs[regNumDest];
+			src = GR.rs[regNumSrc];
 			_ALU(dest, src, _ALU_CMPC);
 			break;
 
 		case 0x86:
 			// ADDC Rn, Rm
 			CycleCount = 1;
-			dest = GR.rs[regNum];
-			src = GR.rs[(CodeWord >> 4) & 0x0f];
-			GR.rs[regNum] = _ALU(dest, src, _ALU_ADDC);
+			dest = GR.rs[regNumDest];
+			src = GR.rs[regNumSrc];
+			GR.rs[regNumDest] = _ALU(dest, src, _ALU_ADDC);
 			break;
 
 		case 0x87:
 			// CMP Rn, Rm
 			CycleCount = 1;
-			src = GR.rs[(CodeWord >> 4) & 0x0f];
+			src = GR.rs[regNumSrc];
 			_ALU(dest, src, _ALU_CMP);
 			break;
 
 		case 0x88:
 			// SUB Rn, Rm
 			CycleCount = 1;
-			dest = GR.rs[regNum];
-			src = GR.rs[(CodeWord >> 4) & 0x0f];
-			GR.rs[regNum] = _ALU(dest, src, _ALU_SUB);
+			dest = GR.rs[regNumDest];
+			src = GR.rs[regNumSrc];
+			GR.rs[regNumDest] = _ALU(dest, src, _ALU_SUB);
 			break;
 
 		case 0x89:
 			// SUBC Rn, Rm
 			CycleCount = 1;
-			dest = GR.rs[regNum];
-			src = GR.rs[(CodeWord >> 4) & 0x0f];
-			GR.rs[regNum] = _ALU(dest, src, _ALU_SUBC);
+			dest = GR.rs[regNumDest];
+			src = GR.rs[regNumSrc];
+			GR.rs[regNumDest] = _ALU(dest, src, _ALU_SUBC);
 			break;
 
 		case 0x8a:
 			// SLL Rn, Rm
 			CycleCount = 1 + EAIncDelay;
-			dest = GR.rs[regNum];
-			src = GR.rs[(CodeWord >> 4) & 0x0f];
-			GR.rs[regNum] = _ALU(dest, src, _ALU_SLL);
+			dest = GR.rs[regNumDest];
+			src = GR.rs[regNumSrc];
+			GR.rs[regNumDest] = _ALU(dest, src, _ALU_SLL);
 			break;
 
 		case 0x8b:
 			// SLLC Rn, Rm
 			CycleCount = 1 + EAIncDelay;
-			dest = (GR.rs[regNum] << 8) | GR.rs[(regNum - 1) & 0x0f];
-			src = GR.rs[(CodeWord >> 4) & 0x0f] & 0x07;
+			dest = (GR.rs[regNumDest] << 8) | GR.rs[(regNumDest - 1) & 0x0f];
+			src = GR.rs[regNumSrc] & 0x07;
 
 			dest >>= (8 - src);
 			PSW.C = (dest & 0x100)? 1 : 0;
 
-			GR.rs[regNum] = (dest & 0xff);
+			GR.rs[regNumDest] = (dest & 0xff);
 
 			break;
 
 		case 0x8c:
 			// SRL Rn, Rm
 			CycleCount = 1 + EAIncDelay;
-			dest = GR.rs[regNum];
-			src = GR.rs[(CodeWord >> 4) & 0x0f];
-			GR.rs[regNum] = _ALU(dest, src, _ALU_SRL);
+			dest = GR.rs[regNumDest];
+			src = GR.rs[regNumSrc];
+			GR.rs[regNumDest] = _ALU(dest, src, _ALU_SRL);
 			break;
 
 		case 0x8d:
 			// SRLC Rn, Rm
 			CycleCount = 1 + EAIncDelay;
-			dest = (GR.rs[(regNum + 1) & 0x0f] << 9) | (GR.rs[regNum] << 1);	// bit 0 for carry
-			src = GR.rs[(CodeWord >> 4) & 0x0f] & 0x07;
+			dest = (GR.rs[(regNumDest + 1) & 0x0f] << 9) | (GR.rs[regNumDest] << 1);	// bit 0 for carry
+			src = GR.rs[regNumSrc] & 0x07;
 
 			dest >>= src;
 			PSW.C = dest & 0x01;
 			dest = (dest >> 1) & 0xff;
 
-			GR.rs[regNum] = (dest & 0xff);
+			GR.rs[regNumDest] = (dest & 0xff);
 
 			break;
 
 		case 0x8e:
 			// SRA Rn, Rm
 			CycleCount = 1 + EAIncDelay;
-			dest = GR.rs[regNum];
-			src = GR.rs[(CodeWord >> 4) & 0x0f];
-			GR.rs[regNum] = _ALU(dest, src, _ALU_SRA);
+			dest = GR.rs[regNumDest];
+			src = GR.rs[regNumSrc];
+			GR.rs[regNumDest] = _ALU(dest, src, _ALU_SRA);
 			break;
 
 		case 0x8f:
 			if( (CodeWord & 0xf11f) == 0x810f ) {
 				//EXTBW ERn
-				src = GR.rs[(CodeWord >> 4) & 0x0f];
+				src = GR.rs[regNumSrc];
 
 				PSW.S = SIGN8(dest);
 				PSW.Z = IS_ZERO(dest);
 
-				GR.rs[regNum] = PSW.S? 0xff : 0;
+				GR.rs[regNumDest] = PSW.S? 0xff : 0;
 				break;
 			}
 			switch( CodeWord & 0xf0ff ) {
@@ -739,8 +783,8 @@ CORE_STATUS coreStep(void) {
 					// Uh gosh this is so much of a pain
 					// reference: AMD64 general purpose and system instructions
 					CycleCount = 1;
-					dest = GR.rs[regNum];
-					GR.rs[regNum] = _ALU(dest, 0, _ALU_DAA);
+					dest = GR.rs[regNumDest];
+					GR.rs[regNumDest] = _ALU(dest, 0, _ALU_DAA);
 					break;
 
 				case 0x803f:
@@ -748,15 +792,15 @@ CORE_STATUS coreStep(void) {
 					// This is even more confusing than DAA
 					// reference: AMD64 general purpose and system instructions
 					CycleCount = 1;
-					dest = GR.rs[regNum];
-					GR.rs[regNum] = _ALU(dest, 0, _ALU_DAS);
+					dest = GR.rs[regNumDest];
+					GR.rs[regNumDest] = _ALU(dest, 0, _ALU_DAS);
 					break;
 
 				case 0x805f:
 					//NEG Rn
 					CycleCount = 1;
-					dest = GR.rs[regNum];
-					GR.rs[regNum] = _ALU(dest, 0, _ALU_NEG);
+					dest = GR.rs[regNumDest];
+					GR.rs[regNumDest] = _ALU(dest, 0, _ALU_NEG);
 					break;
 
 				default:
@@ -768,7 +812,7 @@ CORE_STATUS coreStep(void) {
 		case 0x90:
 			if( (CodeWord & 0x0010) == 0x0000 ) {
 				// L Rn, [ERm]
-				src = GR.ers[(CodeWord >> 4) & 0x0e];
+				src = GR.ers[regNumSrc & 0x0e];
 				CycleCount += EAIncDelay;
 			}
 			else {
@@ -805,13 +849,13 @@ CORE_STATUS coreStep(void) {
 
 			PSW.S = SIGN8(dest);
 			PSW.Z = IS_ZERO(dest);
-			GR.rs[regNum] = dest;
+			GR.rs[regNumDest] = dest;
 			break;
 
 		case 0x91:
 			if( (CodeWord & 0x0010) == 0x0000 ) {
 				// ST Rn, [ERm]
-				dest = GR.ers[(CodeWord >> 4) & 0x0e];
+				dest = GR.ers[regNumSrc & 0x0e];
 				CycleCount += EAIncDelay;
 			}
 			else {
@@ -842,7 +886,7 @@ CORE_STATUS coreStep(void) {
 				}
 			}
 
-			tempData.byte = GR.rs[regNum];
+			tempData.byte = GR.rs[regNumDest];
 			memorySetData(GET_DATA_SEG, dest, 1, tempData);
 			CycleCount += 1;
 			break;
@@ -850,7 +894,7 @@ CORE_STATUS coreStep(void) {
 		case 0x92:
 			if( (CodeWord & 0x0110) == 0x0000 ) {
 				// L ERn, [ERm]
-				src = GR.ers[(CodeWord >> 4) & 0x0e];
+				src = GR.ers[regNumSrc & 0x0e];
 				CycleCount += EAIncDelay;
 			}
 			else {
@@ -887,13 +931,13 @@ CORE_STATUS coreStep(void) {
 
 			PSW.S = SIGN16(dest);
 			PSW.Z = IS_ZERO(dest);
-			GR.ers[regNum] = dest;
+			GR.ers[regNumDest] = dest;
 			break;
 
 		case 0x93:
 			if( (CodeWord & 0x0110) == 0x0000 ) {
 				// ST ERn, [ERm]
-				dest = GR.ers[(CodeWord >> 4) & 0x0e];
+				dest = GR.ers[regNumSrc & 0x0e];
 				CycleCount += EAIncDelay;
 			}
 			else {
@@ -924,7 +968,7 @@ CORE_STATUS coreStep(void) {
 				}
 			}
 
-			tempData.word = GR.ers[regNum];
+			tempData.word = GR.ers[regNumDest];
 			memorySetData(GET_DATA_SEG, dest, 2, tempData);
 			CycleCount += 2;
 			break;
@@ -953,7 +997,7 @@ CORE_STATUS coreStep(void) {
 
 			PSW.S = SIGN32(dest);
 			PSW.Z = IS_ZERO(dest);
-			GR.xrs[regNum] = dest;
+			GR.xrs[regNumDest] = dest;
 			break;
 
 		case 0x95:
@@ -974,7 +1018,7 @@ CORE_STATUS coreStep(void) {
 					goto exit;
 			}
 
-			tempData.dword = GR.xrs[regNum];
+			tempData.dword = GR.xrs[regNumDest];
 			memorySetData(GET_DATA_SEG, dest, 4, tempData);
 			CycleCount = 4;
 			break;
@@ -1003,7 +1047,7 @@ CORE_STATUS coreStep(void) {
 
 			PSW.S = SIGN64(dest);
 			PSW.Z = IS_ZERO(dest);
-			GR.qrs[regNum] = dest;
+			GR.qrs[regNumDest] = dest;
 			break;
 
 		case 0x97:
@@ -1024,7 +1068,7 @@ CORE_STATUS coreStep(void) {
 					goto exit;
 			}
 
-			tempData.qword = GR.qrs[regNum];
+			tempData.qword = GR.qrs[regNumDest];
 			memorySetData(GET_DATA_SEG, dest, 8, tempData);
 			CycleCount = 8;
 			break;
@@ -1035,11 +1079,11 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// L Rn, d16[ERm]
-			src = GR.ers[(CodeWord >> 4) & 0x0e];
+			src = GR.ers[regNumSrc & 0x0e];
 			memoryGetCodeWord(CSR, PC);
 			src = (src + CodeWord) & 0xffff;
 			memoryGetData(GET_DATA_SEG, src, 1);
-			GR.rs[regNum] = DataRaw.byte;
+			GR.rs[regNumDest] = DataRaw.byte;
 			CycleCount = 2 + ROMWinAccessCount + EAIncDelay;
 			break;
 
@@ -1049,10 +1093,10 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// ST Rn, d16[ERm]
-			dest = GR.ers[(CodeWord >> 4) & 0x0e];
+			dest = GR.ers[regNumSrc & 0x0e];
 			memoryGetCodeWord(CSR, PC);
 			dest = (dest + CodeWord) & 0xffff;
-			tempData.byte = GR.rs[regNum];
+			tempData.byte = GR.rs[regNumDest];
 			memorySetData(GET_DATA_SEG, dest, 1, tempData);
 			CycleCount = 2 + EAIncDelay;
 			break;
@@ -1064,9 +1108,9 @@ CORE_STATUS coreStep(void) {
 			}
 			// SLL Rn, Rm
 			CycleCount = 1 + EAIncDelay;
-			dest = GR.rs[regNum];
-			src = CodeWord >> 4;
-			GR.rs[regNum] = _ALU(dest, src, _ALU_SLL);
+			dest = GR.rs[regNumDest];
+			src = regNumSrc;
+			GR.rs[regNumDest] = _ALU(dest, src, _ALU_SLL);
 			break;
 
 		case 0x9b:
@@ -1076,13 +1120,13 @@ CORE_STATUS coreStep(void) {
 			}
 			// SLLC Rn, Rm
 			CycleCount = 1 + EAIncDelay;
-			dest = (GR.rs[regNum] << 8) | GR.rs[(regNum - 1) & 0x0f];
-			src = (CodeWord >> 4) & 0x07;
+			dest = (GR.rs[regNumDest] << 8) | GR.rs[(regNumDest - 1) & 0x0f];
+			src = regNumSrc & 0x07;
 
 			dest >>= (8 - src);
 			PSW.C = (dest & 0x100)? 1 : 0;
 
-			GR.rs[regNum] = (dest & 0xff);
+			GR.rs[regNumDest] = (dest & 0xff);
 
 			break;
 
@@ -1093,9 +1137,9 @@ CORE_STATUS coreStep(void) {
 			}
 			// SRL Rn, Rm
 			CycleCount = 1 + EAIncDelay;
-			dest = GR.rs[regNum];
-			src = CodeWord >> 4;
-			GR.rs[regNum] = _ALU(dest, src, _ALU_SRL);
+			dest = GR.rs[regNumDest];
+			src = regNumSrc;
+			GR.rs[regNumDest] = _ALU(dest, src, _ALU_SRL);
 			break;
 
 		case 0x9d:
@@ -1105,14 +1149,14 @@ CORE_STATUS coreStep(void) {
 			}
 			// SRLC Rn, Rm
 			CycleCount = 1 + EAIncDelay;
-			dest = (GR.rs[(regNum + 1) & 0x0f] << 9) | (GR.rs[regNum] << 1);	// bit 0 for carry
-			src = (CodeWord >> 4) & 0x07;
+			dest = (GR.rs[(regNumDest + 1) & 0x0f] << 9) | (GR.rs[regNumDest] << 1);	// bit 0 for carry
+			src = regNumSrc & 0x07;
 
 			dest >>= src;
 			PSW.C = dest & 0x01;
 			dest = (dest >> 1) & 0xff;
 
-			GR.rs[regNum] = (dest & 0xff);
+			GR.rs[regNumDest] = (dest & 0xff);
 
 			break;
 
@@ -1123,9 +1167,9 @@ CORE_STATUS coreStep(void) {
 			}
 			// SRA Rn, Rm
 			CycleCount = 1 + EAIncDelay;
-			dest = GR.rs[regNum];
-			src = CodeWord >> 4;
-			GR.rs[regNum] = _ALU(dest, src, _ALU_SRA);
+			dest = GR.rs[regNumDest];
+			src = regNumSrc;
+			GR.rs[regNumDest] = _ALU(dest, src, _ALU_SRA);
 			break;
 
 		case 0x9f:
@@ -1140,7 +1184,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xa0:
-			src = (CodeWord >> 4) & 0x07;
+			src = regNumSrc & 0x07;
 			if( (CodeWord & 0x0080) != 0x0000 ) {
 				if( (CodeWord & 0x0f80) != 0x0080 ) {
 					retVal = CORE_ILLEGAL_INSTRUCTION;
@@ -1155,12 +1199,12 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// SB Rn.b
-			GR.rs[regNum] = _ALU(GR.rs[regNum], src, _ALU_SB);
+			GR.rs[regNumDest] = _ALU(GR.rs[regNumDest], src, _ALU_SB);
 			CycleCount = 1;
 			break;
 
 		case 0xa1:
-			src = (CodeWord >> 4) & 0x07;
+			src = regNumSrc & 0x07;
 			if( (CodeWord & 0x0080) != 0x0000 ) {
 				if( (CodeWord & 0x0f80) != 0x0080 ) {
 					retVal = CORE_ILLEGAL_INSTRUCTION;
@@ -1174,12 +1218,12 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// TB Rn.b
-			_ALU(GR.rs[regNum], src, _ALU_TB);
+			_ALU(GR.rs[regNumDest], src, _ALU_TB);
 			CycleCount = 1;
 			break;
 
 		case 0xa2:
-			src = (CodeWord >> 4) & 0x07;
+			src = regNumSrc & 0x07;
 			if( (CodeWord & 0x0080) != 0x0000 ) {
 				if( (CodeWord & 0x0f80) != 0x0080 ) {
 					retVal = CORE_ILLEGAL_INSTRUCTION;
@@ -1194,7 +1238,91 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// RB Rn.b
-			GR.rs[regNum] = _ALU(GR.rs[regNum], src, _ALU_RB);
+			GR.rs[regNumDest] = _ALU(GR.rs[regNumDest], src, _ALU_RB);
+			CycleCount = 1;
+			break;
+
+		case 0xa3:
+			if( (CodeWord & 0x00f0) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// MOV Rn, PSW
+			GR.rs[regNumDest] = PSW.raw;
+			CycleCount = 1;
+			break;
+
+		case 0xa4:
+			if( (CodeWord & 0x00f0) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// MOV Rn, EPSW
+			if( PSW.ELevel != 0 )
+				GR.rs[regNumDest] = getCurrEPSW()->raw;
+			CycleCount = 2;
+			break;
+
+		case 0xa5:
+			if( (CodeWord & 0x01f0) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// MOV ERn, ELR
+			GR.ers[regNumDest] = *getCurrELR();
+			CycleCount = 3;
+			break;
+
+		case 0xa6:
+			// MOV Rn, CRm
+			retVal = CORE_UNIMPLEMENTED;
+			break;
+
+		case 0xa7:
+			if( (CodeWord & 0x00f0) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// MOV Rn, ECSR
+			GR.rs[regNumDest] = *getCurrECSR();
+			CycleCount = 2;
+			break;
+
+		case 0xa8:
+			if( (CodeWord & 0xf11f) != 0xa008 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// L ERn, d16[ERm]
+			src = GR.ers[regNumSrc & 0x0e];
+			memoryGetCodeWord(CSR, PC);
+			src = (src + CodeWord) & 0xffff;
+			memoryGetData(GET_DATA_SEG, src, 2);
+			GR.ers[regNumDest] = DataRaw.word;
+			CycleCount = 3 + ROMWinAccessCount + EAIncDelay;
+			break;
+
+		case 0xa9:
+			if( (CodeWord & 0xf11f) != 0xa009 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// ST ERn, d16[ERm]
+			dest = GR.ers[regNumSrc & 0x0e];
+			memoryGetCodeWord(CSR, PC);
+			dest = (dest + CodeWord) & 0xffff;
+			tempData.word = GR.ers[regNumDest];
+			memorySetData(GET_DATA_SEG, dest, 2, tempData);
+			CycleCount = 3 + EAIncDelay;
+			break;
+
+		case 0xaa:
+			if( (CodeWord & 0x0f10) != 0x0110 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// MOV SP, ERm
+			SP = GR.ers[regNumSrc & 0x0e];
 			CycleCount = 1;
 			break;
 
