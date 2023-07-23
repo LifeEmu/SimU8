@@ -52,6 +52,9 @@ typedef enum {
 	_ALU_DAA,
 	_ALU_DAS,
 	_ALU_NEG,
+	_ALU_SB,
+	_ALU_TB,
+	_ALU_RB
 } _ALU_OP;
 
 
@@ -255,6 +258,26 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 			PSW.S = SIGN8(retVal);
 			PSW.Z = IS_ZERO(retVal);
 			break;
+
+		case _ALU_SB:
+			// set bit
+			src = 0x01 << (src & 0x07);
+			PSW.Z = IS_ZERO(dest & src);
+			dest |= src;
+			break;
+
+		case _ALU_TB:
+			// test bit
+			src = 0x01 << (src & 0x07);
+			PSW.Z = IS_ZERO(dest & src);
+			break;
+
+		case _ALU_RB:
+			// reset bit
+			src = 0x01 << (src & 0x07);
+			PSW.Z = IS_ZERO(dest & src);
+			dest &= ~src;
+			break;
 	}
 
 	return retVal;
@@ -335,21 +358,21 @@ CORE_STATUS coreDispRegs(void) {
 
 	puts("\n Control registers:");
 
-	printf("\tCSR:PC = %01X:%04X\n", CSR, PC);
-	printf("\tSP = %04X\n", SP);
-	printf("\tDSR = %02X\n", DSR);
-	printf("\tEA = %04X\n", EA);
-	printf("\tPSW = %02X\n", PSW.raw);
+	printf("\tCSR:PC = %01X:%04Xh\n", CSR, PC);
+	printf("\tSP = %04Xh\n", SP);
+	printf("\tDSR = %02Xh\n", DSR);
+	printf("\tEA = %04Xh\n", EA);
+	printf("\tPSW = %02Xh\n", PSW.raw);
 	printf("\t\tC Z S V I H MIE\n\t\t%1d %1d %1d %1d %1d %1d  %1d\n", PSW.C, PSW.Z, PSW.S, PSW.OV, PSW.MIE, PSW.HC, PSW.ELevel);
 
-	printf("\n\tLCSR:LR = %01X:%04X\n", LCSR, LR);
-	printf("\tECSR1:ELR1 = %01X:%04X\n", ECSR1, ELR1);
-	printf("\tECSR1:ELR1 = %01X:%04X\n", ECSR2, ELR2);
-	printf("\tECSR1:ELR1 = %01X:%04X\n", ECSR3, ELR3);
+	printf("\n\tLCSR:LR = %01X:%04Xh\n", LCSR, LR);
+	printf("\tECSR1:ELR1 = %01X:%04Xh\n", ECSR1, ELR1);
+	printf("\tECSR1:ELR1 = %01X:%04Xh\n", ECSR2, ELR2);
+	printf("\tECSR1:ELR1 = %01X:%04Xh\n", ECSR3, ELR3);
 
-	printf("\n\tEPSW1 = %02X\n", EPSW1.raw);
-	printf("\tEPSW2 = %02X\n", EPSW1.raw);
-	printf("\tEPSW3 = %02X\n", EPSW1.raw);
+	printf("\n\tEPSW1 = %02Xh\n", EPSW1.raw);
+	printf("\tEPSW2 = %02Xh\n", EPSW1.raw);
+	printf("\tEPSW3 = %02Xh\n", EPSW1.raw);
 
 	puts("========       End       ========");
 
@@ -362,9 +385,9 @@ CORE_STATUS coreStep(void) {
 	CycleCount = 0;
 	uint8_t decodeIndex, regNum;
 	bool isEAInc = false;
+	bool isDSRSet = false;
 
 	uint64_t dest, src;
-	uint64_t temp;
 	Data_t tempData = {0};
 
 	if( IsMemoryInited == false ) {
@@ -650,7 +673,7 @@ CORE_STATUS coreStep(void) {
 
 		case 0x8a:
 			// SLL Rn, Rm
-			CycleCount = 1;
+			CycleCount = 1 + EAIncDelay;
 			dest = GR.rs[regNum];
 			src = GR.rs[(CodeWord >> 4) & 0x0f];
 			GR.rs[regNum] = _ALU(dest, src, _ALU_SLL);
@@ -658,7 +681,7 @@ CORE_STATUS coreStep(void) {
 
 		case 0x8b:
 			// SLLC Rn, Rm
-			CycleCount = 1;
+			CycleCount = 1 + EAIncDelay;
 			dest = (GR.rs[regNum] << 8) | GR.rs[(regNum - 1) & 0x0f];
 			src = GR.rs[(CodeWord >> 4) & 0x0f] & 0x07;
 
@@ -671,7 +694,7 @@ CORE_STATUS coreStep(void) {
 
 		case 0x8c:
 			// SRL Rn, Rm
-			CycleCount = 1;
+			CycleCount = 1 + EAIncDelay;
 			dest = GR.rs[regNum];
 			src = GR.rs[(CodeWord >> 4) & 0x0f];
 			GR.rs[regNum] = _ALU(dest, src, _ALU_SRL);
@@ -679,7 +702,7 @@ CORE_STATUS coreStep(void) {
 
 		case 0x8d:
 			// SRLC Rn, Rm
-			CycleCount = 1;
+			CycleCount = 1 + EAIncDelay;
 			dest = (GR.rs[(regNum + 1) & 0x0f] << 9) | (GR.rs[regNum] << 1);	// bit 0 for carry
 			src = GR.rs[(CodeWord >> 4) & 0x0f] & 0x07;
 
@@ -693,7 +716,7 @@ CORE_STATUS coreStep(void) {
 
 		case 0x8e:
 			// SRA Rn, Rm
-			CycleCount = 1;
+			CycleCount = 1 + EAIncDelay;
 			dest = GR.rs[regNum];
 			src = GR.rs[(CodeWord >> 4) & 0x0f];
 			GR.rs[regNum] = _ALU(dest, src, _ALU_SRA);
@@ -746,44 +769,39 @@ CORE_STATUS coreStep(void) {
 			if( (CodeWord & 0x0010) == 0x0000 ) {
 				// L Rn, [ERm]
 				src = GR.ers[(CodeWord >> 4) & 0x0e];
-				memoryGetData(GET_DATA_SEG, src, 1);
-				dest = DataRaw.byte;
-				CycleCount = 1 + ROMWinAccessCount + EAIncDelay;
-
-				PSW.S = SIGN8(dest);
-				PSW.Z = IS_ZERO(dest);
-				GR.rs[regNum] = dest;
-				break;
+				CycleCount += EAIncDelay;
 			}
-			switch( CodeWord & 0xf0ff ) {
-				case 0x9010:
-					// L Rn, [adr]
-					// fetch source address
-					memoryGetCodeWord(CSR, PC);
-					src = CodeWord;
+			else {
+				switch( CodeWord & 0xf0ff ) {
+					case 0x9010:
+						// L Rn, [adr]
+						// fetch source address
+						memoryGetCodeWord(CSR, PC);
+						src = CodeWord;
+						CycleCount += EAIncDelay;
+						PC = (PC + 2) & 0xfffe;
+						break;
 
-					PC = (PC + 2) & 0xfffe;
-					break;
+					case 0x9030:
+						// L Rn, [EA]
+						src = EA;
+						break;
 
-				case 0x9030:
-					// L Rn, [EA]
-					src = EA;
-					break;
+					case 0x9050:
+						// L Rn, [EA+]
+						src = EA;
+						EA += 1; isEAInc = true;
+						break;
 
-				case 0x9050:
-					// L Rn, [EA+]
-					src = EA;
-					EA += 1; isEAInc = true;
-					break;
-
-				default:
-					retVal = CORE_ILLEGAL_INSTRUCTION;
-					goto exit;
+					default:
+						retVal = CORE_ILLEGAL_INSTRUCTION;
+						goto exit;
+				}
 			}
 
 			memoryGetData(GET_DATA_SEG, src, 1);
 			dest = DataRaw.byte;
-			CycleCount = 1 + ROMWinAccessCount;
+			CycleCount += 1 + ROMWinAccessCount;
 
 			PSW.S = SIGN8(dest);
 			PSW.Z = IS_ZERO(dest);
@@ -793,31 +811,135 @@ CORE_STATUS coreStep(void) {
 		case 0x91:
 			if( (CodeWord & 0x0010) == 0x0000 ) {
 				// ST Rn, [ERm]
-				tempData.byte = GR.rs[regNum];
 				dest = GR.ers[(CodeWord >> 4) & 0x0e];
-				memorySetData(GET_DATA_SEG, dest, 1, tempData);
-				CycleCount = 1 + EAIncDelay;
-				break;
+				CycleCount += EAIncDelay;
 			}
-			switch( CodeWord & 0xf0ff ) {
-				case 0x9010:
-					// ST Rn, [adr]
-					// fetch destination address
-					memoryGetCodeWord(CSR, PC);
-					dest = CodeWord;
+			else {
+				switch( CodeWord & 0xf0ff ) {
+					case 0x9010:
+						// ST Rn, [adr]
+						// fetch destination address
+						memoryGetCodeWord(CSR, PC);
+						dest = CodeWord;
+						CycleCount += EAIncDelay;
+						PC = (PC + 2) & 0xfffe;
+						break;
 
-					PC = (PC + 2) & 0xfffe;
+					case 0x9030:
+						// ST Rn, [EA]
+						dest = EA;
+						break;
+
+					case 0x9050:
+						// ST Rn, [EA+]
+						dest = EA;
+						EA += 1; isEAInc = true;
+						break;
+
+					default:
+						retVal = CORE_ILLEGAL_INSTRUCTION;
+						goto exit;
+				}
+			}
+
+			tempData.byte = GR.rs[regNum];
+			memorySetData(GET_DATA_SEG, dest, 1, tempData);
+			CycleCount += 1;
+			break;
+
+		case 0x92:
+			if( (CodeWord & 0x0110) == 0x0000 ) {
+				// L ERn, [ERm]
+				src = GR.ers[(CodeWord >> 4) & 0x0e];
+				CycleCount += EAIncDelay;
+			}
+			else {
+				switch( CodeWord & 0xf1ff ) {
+					case 0x9012:
+						// L ERn, [adr]
+						// fetch source address
+						memoryGetCodeWord(CSR, PC);
+						src = CodeWord;
+						CycleCount += EAIncDelay;
+						PC = (PC + 2) & 0xfffe;
+						break;
+
+					case 0x9032:
+						// L ERn, [EA]
+						src = EA;
+						break;
+
+					case 0x9052:
+						// L ERn, [EA+]
+						src = EA;
+						EA = (EA + 2) & 0xfffe; isEAInc = true;
+						break;
+
+					default:
+						retVal = CORE_ILLEGAL_INSTRUCTION;
+						goto exit;
+				}
+			}
+
+			memoryGetData(GET_DATA_SEG, src, 2);
+			dest = DataRaw.word;
+			CycleCount += 2 + ROMWinAccessCount;
+
+			PSW.S = SIGN16(dest);
+			PSW.Z = IS_ZERO(dest);
+			GR.ers[regNum] = dest;
+			break;
+
+		case 0x93:
+			if( (CodeWord & 0x0110) == 0x0000 ) {
+				// ST ERn, [ERm]
+				dest = GR.ers[(CodeWord >> 4) & 0x0e];
+				CycleCount += EAIncDelay;
+			}
+			else {
+				switch( CodeWord & 0xf1ff ) {
+					case 0x9013:
+						// ST ERn, [adr]
+						// fetch destination address
+						memoryGetCodeWord(CSR, PC);
+						dest = CodeWord;
+						CycleCount += EAIncDelay;
+						PC = (PC + 2) & 0xfffe;
+						break;
+
+					case 0x9033:
+						// ST ERn, [EA]
+						dest = EA;
+						break;
+
+					case 0x9053:
+						// ST ERn, [EA+]
+						dest = EA;
+						EA = (EA + 2) & 0xfffe; isEAInc = true;
+						break;
+
+					default:
+						retVal = CORE_ILLEGAL_INSTRUCTION;
+						goto exit;
+				}
+			}
+
+			tempData.word = GR.ers[regNum];
+			memorySetData(GET_DATA_SEG, dest, 2, tempData);
+			CycleCount += 2;
+			break;
+
+		case 0x94:
+			src = EA;
+			switch( CodeWord & 0xf3ff ) {
+				case 0x9034:
+					// L XRn, [EA]
 					break;
 
-				case 0x9030:
-					// ST Rn, [EA]
-					dest = EA;
-					break;
-
-				case 0x9050:
-					// ST Rn, [EA+]
-					dest = EA;
-					EA += 1; isEAInc = true;
+				case 0x9054:
+					// L XRn, [EA+]
+					EA = (EA + 4) & 0xfffe;
+					isEAInc = true;
 					break;
 
 				default:
@@ -825,17 +947,267 @@ CORE_STATUS coreStep(void) {
 					goto exit;
 			}
 
+			memoryGetData(GET_DATA_SEG, src, 4);
+			dest = DataRaw.dword;
+			CycleCount = 4 + ROMWinAccessCount;
+
+			PSW.S = SIGN32(dest);
+			PSW.Z = IS_ZERO(dest);
+			GR.xrs[regNum] = dest;
+			break;
+
+		case 0x95:
+			dest = EA;
+			switch( CodeWord & 0xf3ff ) {
+				case 0x9035:
+					// ST XRn, [EA]
+					break;
+
+				case 0x9055:
+					// ST XRn, [EA+]
+					EA = (EA + 4) & 0xfffe;
+					isEAInc = true;
+					break;
+
+				default:
+					retVal = CORE_ILLEGAL_INSTRUCTION;
+					goto exit;
+			}
+
+			tempData.dword = GR.xrs[regNum];
+			memorySetData(GET_DATA_SEG, dest, 4, tempData);
+			CycleCount = 4;
+			break;
+
+		case 0x96:
+			src = EA;
+			switch( CodeWord & 0xf7ff ) {
+				case 0x9036:
+					// L QRn, [EA]
+					break;
+
+				case 0x9056:
+					// L QRn, [EA+]
+					EA = (EA + 8) & 0xfffe;
+					isEAInc = true;
+					break;
+
+				default:
+					retVal = CORE_ILLEGAL_INSTRUCTION;
+					goto exit;
+			}
+
+			memoryGetData(GET_DATA_SEG, src, 8);
+			dest = DataRaw.qword;
+			CycleCount = 8 + ROMWinAccessCount;
+
+			PSW.S = SIGN64(dest);
+			PSW.Z = IS_ZERO(dest);
+			GR.qrs[regNum] = dest;
+			break;
+
+		case 0x97:
+			dest = EA;
+			switch( CodeWord & 0xf7ff ) {
+				case 0x9037:
+					// ST QRn, [EA]
+					break;
+
+				case 0x9057:
+					// ST QRn, [EA+]
+					EA = (EA + 8) & 0xfffe;
+					isEAInc = true;
+					break;
+
+				default:
+					retVal = CORE_ILLEGAL_INSTRUCTION;
+					goto exit;
+			}
+
+			tempData.qword = GR.qrs[regNum];
+			memorySetData(GET_DATA_SEG, dest, 8, tempData);
+			CycleCount = 8;
+			break;
+
+		case 0x98:
+			if( (CodeWord & 0xf01f) != 0x9008 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// L Rn, d16[ERm]
+			src = GR.ers[(CodeWord >> 4) & 0x0e];
+			memoryGetCodeWord(CSR, PC);
+			src = (src + CodeWord) & 0xffff;
+			memoryGetData(GET_DATA_SEG, src, 1);
+			GR.rs[regNum] = DataRaw.byte;
+			CycleCount = 2 + ROMWinAccessCount + EAIncDelay;
+			break;
+
+		case 0x99:
+			if( (CodeWord & 0xf01f) != 0x9009 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// ST Rn, d16[ERm]
+			dest = GR.ers[(CodeWord >> 4) & 0x0e];
+			memoryGetCodeWord(CSR, PC);
+			dest = (dest + CodeWord) & 0xffff;
 			tempData.byte = GR.rs[regNum];
 			memorySetData(GET_DATA_SEG, dest, 1, tempData);
+			CycleCount = 2 + EAIncDelay;
+			break;
+
+		case 0x9a:
+			if( (CodeWord & 0x0080) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// SLL Rn, Rm
+			CycleCount = 1 + EAIncDelay;
+			dest = GR.rs[regNum];
+			src = CodeWord >> 4;
+			GR.rs[regNum] = _ALU(dest, src, _ALU_SLL);
+			break;
+
+		case 0x9b:
+			if( (CodeWord & 0x0080) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// SLLC Rn, Rm
+			CycleCount = 1 + EAIncDelay;
+			dest = (GR.rs[regNum] << 8) | GR.rs[(regNum - 1) & 0x0f];
+			src = (CodeWord >> 4) & 0x07;
+
+			dest >>= (8 - src);
+			PSW.C = (dest & 0x100)? 1 : 0;
+
+			GR.rs[regNum] = (dest & 0xff);
+
+			break;
+
+		case 0x9c:
+			if( (CodeWord & 0x0080) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// SRL Rn, Rm
+			CycleCount = 1 + EAIncDelay;
+			dest = GR.rs[regNum];
+			src = CodeWord >> 4;
+			GR.rs[regNum] = _ALU(dest, src, _ALU_SRL);
+			break;
+
+		case 0x9d:
+			if( (CodeWord & 0x0080) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// SRLC Rn, Rm
+			CycleCount = 1 + EAIncDelay;
+			dest = (GR.rs[(regNum + 1) & 0x0f] << 9) | (GR.rs[regNum] << 1);	// bit 0 for carry
+			src = (CodeWord >> 4) & 0x07;
+
+			dest >>= src;
+			PSW.C = dest & 0x01;
+			dest = (dest >> 1) & 0xff;
+
+			GR.rs[regNum] = (dest & 0xff);
+
+			break;
+
+		case 0x9e:
+			if( (CodeWord & 0x0080) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// SRA Rn, Rm
+			CycleCount = 1 + EAIncDelay;
+			dest = GR.rs[regNum];
+			src = CodeWord >> 4;
+			GR.rs[regNum] = _ALU(dest, src, _ALU_SRA);
+			break;
+
+		case 0x9f:
+			if( (CodeWord & 0x0f00) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// _LDSR Rd
+			CycleCount = 1;
+			DSR = GR.rs[(CodeWord >> 2) & 0x0f];
+			isDSRSet = true;
+			break;
+
+		case 0xa0:
+			src = (CodeWord >> 4) & 0x07;
+			if( (CodeWord & 0x0080) != 0x0000 ) {
+				if( (CodeWord & 0x0f80) != 0x0080 ) {
+					retVal = CORE_ILLEGAL_INSTRUCTION;
+					break;
+				}
+				// SB Dbitadr
+				memoryGetCodeWord(CSR, PC);
+				memoryGetData(GET_DATA_SEG, (EA_t)CodeWord, 1);
+				tempData.byte = _ALU(DataRaw.byte, src, _ALU_SB);
+				memorySetData(GET_DATA_SEG, CodeWord, 1, tempData);
+				CycleCount = 2 + EAIncDelay;
+				break;
+			}
+			// SB Rn.b
+			GR.rs[regNum] = _ALU(GR.rs[regNum], src, _ALU_SB);
 			CycleCount = 1;
 			break;
+
+		case 0xa1:
+			src = (CodeWord >> 4) & 0x07;
+			if( (CodeWord & 0x0080) != 0x0000 ) {
+				if( (CodeWord & 0x0f80) != 0x0080 ) {
+					retVal = CORE_ILLEGAL_INSTRUCTION;
+					break;
+				}
+				// TB Dbitadr
+				memoryGetCodeWord(CSR, PC);
+				memoryGetData(GET_DATA_SEG, (EA_t)CodeWord, 1);
+				_ALU(DataRaw.byte, src, _ALU_TB);
+				CycleCount = 2 + ROMWinAccessCount + EAIncDelay;
+				break;
+			}
+			// TB Rn.b
+			_ALU(GR.rs[regNum], src, _ALU_TB);
+			CycleCount = 1;
+			break;
+
+		case 0xa2:
+			src = (CodeWord >> 4) & 0x07;
+			if( (CodeWord & 0x0080) != 0x0000 ) {
+				if( (CodeWord & 0x0f80) != 0x0080 ) {
+					retVal = CORE_ILLEGAL_INSTRUCTION;
+					break;
+				}
+				// RB Dbitadr
+				memoryGetCodeWord(CSR, PC);
+				memoryGetData(GET_DATA_SEG, (EA_t)CodeWord, 1);
+				tempData.byte = _ALU(DataRaw.byte, src, _ALU_RB);
+				memorySetData(GET_DATA_SEG, CodeWord, 1, tempData);
+				CycleCount = 2 + EAIncDelay;
+				break;
+			}
+			// RB Rn.b
+			GR.rs[regNum] = _ALU(GR.rs[regNum], src, _ALU_RB);
+			CycleCount = 1;
+			break;
+
 
 		default:
 			retVal = CORE_ILLEGAL_INSTRUCTION;
 			break;	
 	}
 
+
+
 	EAIncDelay = isEAInc? 1 : 0;
+	NextAccess = isDSRSet? DATA_ACCESS_DSR : DATA_ACCESS_PAGE0;
 
 	if( retVal == CORE_OK )
 		if( (IntMaskCycle -= CycleCount) < 0 )
