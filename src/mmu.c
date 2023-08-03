@@ -154,7 +154,10 @@ MEMORY_STATUS memoryGetData(SR_t segment, EA_t offset, size_t size) {
 	if( segment >= DATA_PAGE_COUNT )
 		return MEMORY_UNMAPPED;
 
+	offset += size;
+
 	while( true ) {
+		--offset;	// start reading from higher address towards lower address
 		if( (segment == 0) && (offset < ROM_WINDOW_SIZE) ) {
 			++ROMWinAccessCount;
 			retVal = MEMORY_ROM_WINDOW;
@@ -167,7 +170,6 @@ MEMORY_STATUS memoryGetData(SR_t segment, EA_t offset, size_t size) {
 			// code memory
 			DataRaw.byte |= *(uint8_t*)(CodeMemory + (segment << 16) + offset);
 		}
-		++offset;
 		if( --size == 0 )
 			break;
 		DataRaw.raw <<= 8;

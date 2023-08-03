@@ -394,7 +394,7 @@ CORE_STATUS coreDispRegs(void) {
 	putchar('\n');
 	// display Extended Registers
 	for( i = 0; i < 16; i += 2 ) {
-		printf("\tER%-2d = %04Xh\n", i, GR.ers[i]);
+		printf("\tER%-2d = %04Xh\n", i, GR.ers[i >> 1]);
 	}
 
 	puts("\n Control registers:");
@@ -812,7 +812,7 @@ CORE_STATUS coreStep(void) {
 		case 0x90:
 			if( (CodeWord & 0x0010) == 0x0000 ) {
 				// L Rn, [ERm]
-				src = GR.ers[regNumSrc & 0x0e];
+				src = GR.ers[regNumSrc >> 1];
 				CycleCount += EAIncDelay;
 			}
 			else {
@@ -855,7 +855,7 @@ CORE_STATUS coreStep(void) {
 		case 0x91:
 			if( (CodeWord & 0x0010) == 0x0000 ) {
 				// ST Rn, [ERm]
-				dest = GR.ers[regNumSrc & 0x0e];
+				dest = GR.ers[regNumSrc >> 1];
 				CycleCount += EAIncDelay;
 			}
 			else {
@@ -894,7 +894,7 @@ CORE_STATUS coreStep(void) {
 		case 0x92:
 			if( (CodeWord & 0x0110) == 0x0000 ) {
 				// L ERn, [ERm]
-				src = GR.ers[regNumSrc & 0x0e];
+				src = GR.ers[regNumSrc >> 1];
 				CycleCount += EAIncDelay;
 			}
 			else {
@@ -931,13 +931,13 @@ CORE_STATUS coreStep(void) {
 
 			PSW.S = SIGN16(dest);
 			PSW.Z = IS_ZERO(dest);
-			GR.ers[regNumDest] = dest;
+			GR.ers[regNumDest >> 1] = dest;
 			break;
 
 		case 0x93:
 			if( (CodeWord & 0x0110) == 0x0000 ) {
 				// ST ERn, [ERm]
-				dest = GR.ers[regNumSrc & 0x0e];
+				dest = GR.ers[regNumSrc >> 1];
 				CycleCount += EAIncDelay;
 			}
 			else {
@@ -968,7 +968,7 @@ CORE_STATUS coreStep(void) {
 				}
 			}
 
-			tempData.word = GR.ers[regNumDest];
+			tempData.word = GR.ers[regNumDest >> 1];
 			memorySetData(GET_DATA_SEG, dest, 2, tempData);
 			CycleCount += 2;
 			break;
@@ -997,7 +997,7 @@ CORE_STATUS coreStep(void) {
 
 			PSW.S = SIGN32(dest);
 			PSW.Z = IS_ZERO(dest);
-			GR.xrs[regNumDest] = dest;
+			GR.xrs[regNumDest >> 2] = dest;
 			break;
 
 		case 0x95:
@@ -1018,7 +1018,7 @@ CORE_STATUS coreStep(void) {
 					goto exit;
 			}
 
-			tempData.dword = GR.xrs[regNumDest];
+			tempData.dword = GR.xrs[regNumDest >> 2];
 			memorySetData(GET_DATA_SEG, dest, 4, tempData);
 			CycleCount = 4;
 			break;
@@ -1047,7 +1047,7 @@ CORE_STATUS coreStep(void) {
 
 			PSW.S = SIGN64(dest);
 			PSW.Z = IS_ZERO(dest);
-			GR.qrs[regNumDest] = dest;
+			GR.qrs[regNumDest >> 3] = dest;
 			break;
 
 		case 0x97:
@@ -1068,7 +1068,7 @@ CORE_STATUS coreStep(void) {
 					goto exit;
 			}
 
-			tempData.qword = GR.qrs[regNumDest];
+			tempData.qword = GR.qrs[regNumDest >> 3];
 			memorySetData(GET_DATA_SEG, dest, 8, tempData);
 			CycleCount = 8;
 			break;
@@ -1079,7 +1079,7 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// L Rn, d16[ERm]
-			src = GR.ers[regNumSrc & 0x0e];
+			src = GR.ers[regNumSrc >> 1];
 			memoryGetCodeWord(CSR, PC);
 			src = (src + CodeWord) & 0xffff;
 			memoryGetData(GET_DATA_SEG, src, 1);
@@ -1093,7 +1093,7 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// ST Rn, d16[ERm]
-			dest = GR.ers[regNumSrc & 0x0e];
+			dest = GR.ers[regNumSrc >> 1];
 			memoryGetCodeWord(CSR, PC);
 			dest = (dest + CodeWord) & 0xffff;
 			tempData.byte = GR.rs[regNumDest];
@@ -1179,7 +1179,7 @@ CORE_STATUS coreStep(void) {
 			}
 			// _LDSR Rd
 			CycleCount = 1;
-			DSR = GR.rs[(CodeWord >> 2) & 0x0f];
+			DSR = GR.rs[regNumSrc];
 			isDSRSet = true;
 			break;
 
@@ -1294,11 +1294,11 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// L ERn, d16[ERm]
-			src = GR.ers[regNumSrc & 0x0e];
+			src = GR.ers[regNumSrc >> 1];
 			memoryGetCodeWord(CSR, PC);
 			src = (src + CodeWord) & 0xffff;
 			memoryGetData(GET_DATA_SEG, src, 2);
-			GR.ers[regNumDest] = DataRaw.word;
+			GR.ers[regNumDest >> 1] = DataRaw.word;
 			CycleCount = 3 + ROMWinAccessCount + EAIncDelay;
 			break;
 
@@ -1308,10 +1308,10 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// ST ERn, d16[ERm]
-			dest = GR.ers[regNumSrc & 0x0e];
+			dest = GR.ers[regNumSrc >> 1];
 			memoryGetCodeWord(CSR, PC);
 			dest = (dest + CodeWord) & 0xffff;
-			tempData.word = GR.ers[regNumDest];
+			tempData.word = GR.ers[regNumDest >> 1];
 			memorySetData(GET_DATA_SEG, dest, 2, tempData);
 			CycleCount = 3 + EAIncDelay;
 			break;
@@ -1322,7 +1322,7 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// MOV SP, ERm
-			SP = GR.ers[regNumSrc & 0x0e];
+			SP = GR.ers[regNumSrc >> 1];
 			CycleCount = 1;
 			break;
 
