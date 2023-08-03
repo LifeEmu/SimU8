@@ -6,13 +6,13 @@
 #include "coretypes.h"
 
 
-SR_t DSR, CSR, LCSR, ECSR1, ECSR2, ECSR3;
-PC_t PC, LR, ELR1, ELR2, ELR3;
-EA_t EA, SP;
-PSW_t PSW, EPSW1, EPSW2, EPSW3;
-GR_t GR;
+extern SR_t DSR, CSR, LCSR, ECSR1, ECSR2, ECSR3;
+extern PC_t PC, LR, ELR1, ELR2, ELR3;
+extern EA_t EA, SP;
+extern PSW_t PSW, EPSW1, EPSW2, EPSW3;
+extern GR_t GR;
 // Records how many cycles the last instruction has taken
-int CycleCount;
+extern int CycleCount;
 
 
 CORE_STATUS coreZero(void);

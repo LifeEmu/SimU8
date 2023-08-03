@@ -9,15 +9,15 @@
 #include "memsetup.h"
 
 
-void *CodeMemory;
-void *DataMemory;
-bool IsMemoryInited;
+extern void *CodeMemory;
+extern void *DataMemory;
+extern bool IsMemoryInited;
 // the word fetched from code memory
-uint16_t CodeWord;
+extern uint16_t CodeWord;
 // data fetched from data memory
-Data_t DataRaw;
+extern Data_t DataRaw;
 // Tracks how many ROM window access has happened
-int ROMWinAccessCount;
+extern int ROMWinAccessCount;
 
 
 MEMORY_STATUS memoryInit(char *CodeFileName, char *DataFileName);

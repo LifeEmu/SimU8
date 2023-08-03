@@ -408,12 +408,12 @@ CORE_STATUS coreDispRegs(void) {
 
 	printf("\n\tLCSR:LR = %01X:%04Xh\n", LCSR, LR);
 	printf("\tECSR1:ELR1 = %01X:%04Xh\n", ECSR1, ELR1);
-	printf("\tECSR1:ELR1 = %01X:%04Xh\n", ECSR2, ELR2);
-	printf("\tECSR1:ELR1 = %01X:%04Xh\n", ECSR3, ELR3);
+	printf("\tECSR2:ELR2 = %01X:%04Xh\n", ECSR2, ELR2);
+	printf("\tECSR3:ELR3 = %01X:%04Xh\n", ECSR3, ELR3);
 
 	printf("\n\tEPSW1 = %02Xh\n", EPSW1.raw);
-	printf("\tEPSW2 = %02Xh\n", EPSW1.raw);
-	printf("\tEPSW3 = %02Xh\n", EPSW1.raw);
+	printf("\tEPSW2 = %02Xh\n", EPSW2.raw);
+	printf("\tEPSW3 = %02Xh\n", EPSW3.raw);
 
 	puts("========       End       ========");
 
