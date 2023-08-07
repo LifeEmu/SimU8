@@ -71,50 +71,50 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 			dest &= 0xff;
 			src &= 0xff;
 			retVal = dest + src;
-			PSW.C = (retVal & 0x100)? 1 : 0;
+			PSW.field.C = (retVal & 0x100)? 1 : 0;
 			retVal &= 0xff;
-			PSW.Z = IS_ZERO(retVal);
-			PSW.S = SIGN8(retVal);
+			PSW.field.Z = IS_ZERO(retVal);
+			PSW.field.S = SIGN8(retVal);
 			// reference: Z80 user manual
-			PSW.OV = (((dest & 0x7f) + (src & 0x7f)) >> 7) ^ PSW.C;
-			PSW.HC = (((dest & 0x0f) + (src & 0x0f)) & 0x10)? 1 : 0;
+			PSW.field.OV = (((dest & 0x7f) + (src & 0x7f)) >> 7) ^ PSW.field.C;
+			PSW.field.HC = (((dest & 0x0f) + (src & 0x0f)) & 0x10)? 1 : 0;
 			break;
 
 		case _ALU_ADD_W:
 			// 16-bit addition
 			retVal = dest + src;
-			PSW.C = (retVal & 0x10000)? 1 : 0;
+			PSW.field.C = (retVal & 0x10000)? 1 : 0;
 			retVal &= 0xffff;
 //			printf("\n_ALU_ADD_W | result = %04Xh\n", retVal);
-			PSW.Z = IS_ZERO(retVal);
-			PSW.S = SIGN16(retVal);
+			PSW.field.Z = IS_ZERO(retVal);
+			PSW.field.S = SIGN16(retVal);
 			// reference: Z80 user manual
-			PSW.OV = (((dest & 0x7fff) + (src & 0x7fff)) >> 15) ^ PSW.C;
-			PSW.HC = (((dest & 0x0fff) + (src & 0x0fff)) & 0x1000)? 1 : 0;
+			PSW.field.OV = (((dest & 0x7fff) + (src & 0x7fff)) >> 15) ^ PSW.field.C;
+			PSW.field.HC = (((dest & 0x0fff) + (src & 0x0fff)) & 0x1000)? 1 : 0;
 //			printf("\t\tPSW = %02X\n", PSW.raw);
 			break;
-		
+
 		case _ALU_ADDC:
 			// 8-bit addition with carry
 			dest &= 0xff;
 			src &= 0xff;
-			retVal = dest + src + PSW.C;
-			PSW.C = (retVal & 0x100)? 1 : 0;
+			retVal = dest + src + PSW.field.C;
+			PSW.field.C = (retVal & 0x100)? 1 : 0;
 			retVal &= 0xff;
-			PSW.Z = IS_ZERO(retVal);
-			PSW.S = SIGN8(retVal);
+			PSW.field.Z = IS_ZERO(retVal);
+			PSW.field.S = SIGN8(retVal);
 			// reference: Z80 user manual
-			PSW.OV = (((dest & 0x7f) + (src & 0x7f) + PSW.C) >> 7) ^ PSW.C;
-			PSW.HC = (((dest & 0x0f) + (src & 0x0f) + PSW.C) & 0x10)? 1 : 0;
+			PSW.field.OV = (((dest & 0x7f) + (src & 0x7f) + PSW.field.C) >> 7) ^ PSW.field.C;
+			PSW.field.HC = (((dest & 0x0f) + (src & 0x0f) + PSW.field.C) & 0x10)? 1 : 0;
 			break;
-		
+
 		case _ALU_AND:
 			// 8-bit logical AND
 			dest &= 0xff;
 			src &= 0xff;
 			retVal = dest & src;
-			PSW.Z = IS_ZERO(retVal);
-			PSW.S = SIGN8(retVal);
+			PSW.field.Z = IS_ZERO(retVal);
+			PSW.field.S = SIGN8(retVal);
 			break;
 
 		case _ALU_OR:
@@ -122,8 +122,8 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 			dest &= 0xff;
 			src &= 0xff;
 			retVal = dest | src;
-			PSW.Z = IS_ZERO(retVal);
-			PSW.S = SIGN8(retVal);
+			PSW.field.Z = IS_ZERO(retVal);
+			PSW.field.S = SIGN8(retVal);
 			break;
 
 		case _ALU_XOR:
@@ -131,8 +131,8 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 			dest &= 0xff;
 			src &= 0xff;
 			retVal = dest ^ src;
-			PSW.Z = IS_ZERO(retVal);
-			PSW.S = SIGN8(retVal);
+			PSW.field.Z = IS_ZERO(retVal);
+			PSW.field.S = SIGN8(retVal);
 			break;
 
 		case _ALU_CMP:
@@ -141,25 +141,25 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 			dest &= 0xff;
 			src &= 0xff;
 			retVal = dest - src;
-			PSW.C = (retVal & 0x100)? 1 : 0;
+			PSW.field.C = (retVal & 0x100)? 1 : 0;
 			retVal &= 0xff;
-			PSW.Z = IS_ZERO(retVal);
-			PSW.S = SIGN8(retVal);
+			PSW.field.Z = IS_ZERO(retVal);
+			PSW.field.S = SIGN8(retVal);
 			// reference: Z80 user manual
-			PSW.OV = (((dest & 0x7f) - (src & 0x7f)) >> 7) ^ PSW.C;
-			PSW.HC = (((dest & 0x0f) - (src & 0x0f)) & 0x10)? 1 : 0;
+			PSW.field.OV = (((dest & 0x7f) - (src & 0x7f)) >> 7) ^ PSW.field.C;
+			PSW.field.HC = (((dest & 0x0f) - (src & 0x0f)) & 0x10)? 1 : 0;
 			break;
 
 		case _ALU_CMP_W:
 			// 16-bit comparison
 			retVal = dest - src;
-			PSW.C = (retVal & 0x10000)? 1 : 0;
+			PSW.field.C = (retVal & 0x10000)? 1 : 0;
 			retVal &= 0xffff;
-			PSW.Z = IS_ZERO(retVal);
-			PSW.S = SIGN16(retVal);
+			PSW.field.Z = IS_ZERO(retVal);
+			PSW.field.S = SIGN16(retVal);
 			// reference: Z80 user manual
-			PSW.OV = (((dest & 0x7fff) - (src & 0x7fff)) >> 15) ^ PSW.C;
-			PSW.HC = (((dest & 0x0fff) - (src & 0x0fff)) & 0x10)? 1 : 0;
+			PSW.field.OV = (((dest & 0x7fff) - (src & 0x7fff)) >> 15) ^ PSW.field.C;
+			PSW.field.HC = (((dest & 0x0fff) - (src & 0x0fff)) & 0x10)? 1 : 0;
 			break;
 
 		case _ALU_CMPC:
@@ -167,27 +167,27 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 			// 8-bit comparison & subtraction with carry
 			dest &= 0xff;
 			src &= 0xff;
-			retVal = dest - src - PSW.C;
-			PSW.C = (retVal & 0x100)? 1 : 0;
+			retVal = dest - src - PSW.field.C;
+			PSW.field.C = (retVal & 0x100)? 1 : 0;
 			retVal &= 0xff;
-			PSW.Z = IS_ZERO(retVal);
-			PSW.S = SIGN8(retVal);
+			PSW.field.Z = IS_ZERO(retVal);
+			PSW.field.S = SIGN8(retVal);
 			// reference: Z80 user manual
-			PSW.OV = (((dest & 0x7f) - (src & 0x7f) - PSW.C) >> 7) ^ PSW.C;
-			PSW.HC = (((dest & 0x0f) - (src & 0x0f) - PSW.C) & 0x10)? 1 : 0;
+			PSW.field.OV = (((dest & 0x7f) - (src & 0x7f) - PSW.field.C) >> 7) ^ PSW.field.C;
+			PSW.field.HC = (((dest & 0x0f) - (src & 0x0f) - PSW.field.C) & 0x10)? 1 : 0;
 			break;
 
 		case _ALU_SLL:
 			// logical shift left
 			retVal = dest << (src & 0x07);
-			PSW.C = (retVal & 0x100)? 1 : 0;
+			PSW.field.C = (retVal & 0x100)? 1 : 0;
 			retVal &= 0xff;
 			break;
 
 		case _ALU_SRL:
 			// logical shift right
 			retVal = (dest << 1) >> ((src & 0x07) + 1);	// leave space for carry flag
-			PSW.C = retVal & 0x01;
+			PSW.field.C = retVal & 0x01;
 			retVal = (retVal >> 1) & 0xff;
 			break;
 
@@ -195,7 +195,7 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 			// arithmetic shift right
 			shifter = dest << 8;		// use arithmetic shift of host processor
 			shifter >>= ((src & 0x07) + 7);	// leave space for carry flag
-			PSW.C = shifter & 0x01;
+			PSW.field.C = shifter & 0x01;
 			retVal = (shifter >> 1) & 0xff;
 			break;
 
@@ -205,23 +205,23 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 			// reference: AMD64 general purpose and system instructions
 			retVal = dest;
 			// lower nibble
-			if( PSW.HC || ((retVal & 0x0f) > 0x09) ) {
+			if( PSW.field.HC || ((retVal & 0x0f) > 0x09) ) {
 				retVal += 0x06;
-				PSW.HC = 1;
+				PSW.field.HC = 1;
 			}
 			else {
-				PSW.HC = 0;
+				PSW.field.HC = 0;
 			}
 			// higher nibble
-			if( PSW.C || ((retVal & 0xf0) > 0x90) ) {
+			if( PSW.field.C || ((retVal & 0xf0) > 0x90) ) {
 				retVal += 0x60;
-				PSW.C = 1;	// carry should always be set
+				PSW.field.C = 1;	// carry should always be set
 			}
 			else {
-				PSW.C = 0;
+				PSW.field.C = 0;
 			}
-			PSW.S = SIGN8(retVal);
-			PSW.Z = IS_ZERO(retVal);
+			PSW.field.S = SIGN8(retVal);
+			PSW.field.Z = IS_ZERO(retVal);
 			break;
 
 		case _ALU_DAS:
@@ -230,54 +230,54 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 			// reference: AMD64 general purpose and system instructions
 			retVal = dest;
 			// lower nibble
-			if( PSW.HC || ((retVal & 0x0f) > 0x09) ) {
+			if( PSW.field.HC || ((retVal & 0x0f) > 0x09) ) {
 				retVal -= 0x06;
-				PSW.HC = 1;
+				PSW.field.HC = 1;
 			}
 			else {
-				PSW.HC = 0;
+				PSW.field.HC = 0;
 			}
 			// higher nibble
-			if( PSW.C || ((retVal & 0xf0) > 0x90) ) {
+			if( PSW.field.C || ((retVal & 0xf0) > 0x90) ) {
 				retVal -= 0x60;
-				PSW.C = 1;	// carry should always be set
+				PSW.field.C = 1;	// carry should always be set
 			}
 			else {
-				PSW.C = 0;
+				PSW.field.C = 0;
 			}
 			// write back
-			PSW.S = SIGN8(retVal);
-			PSW.Z = IS_ZERO(retVal);
+			PSW.field.S = SIGN8(retVal);
+			PSW.field.Z = IS_ZERO(retVal);
 			break;
 
 		case _ALU_NEG:
 			// 8-bit negate
 			retVal = dest & 0xff;
-			PSW.HC = (retVal & 0x0f)? 0 : 1;	// ~0b0000 + 1 = 0b1_0000
-			PSW.C = retVal? 0 : 1;			// ~0b0000_0000 + 1 = 0b1_0000_0000
-			PSW.OV = ((retVal & 0x7f)? 0 : 1) ^ PSW.C;
+			PSW.field.HC = (retVal & 0x0f)? 0 : 1;	// ~0b0000 + 1 = 0b1_0000
+			PSW.field.C = retVal? 0 : 1;			// ~0b0000_0000 + 1 = 0b1_0000_0000
+			PSW.field.OV = ((retVal & 0x7f)? 0 : 1) ^ PSW.field.C;
 			retVal = (~retVal + 1) & 0xff;
-			PSW.S = SIGN8(retVal);
-			PSW.Z = IS_ZERO(retVal);
+			PSW.field.S = SIGN8(retVal);
+			PSW.field.Z = IS_ZERO(retVal);
 			break;
 
 		case _ALU_SB:
 			// set bit
 			src = 0x01 << (src & 0x07);
-			PSW.Z = IS_ZERO(dest & src);
+			PSW.field.Z = IS_ZERO(dest & src);
 			dest |= src;
 			break;
 
 		case _ALU_TB:
 			// test bit
 			src = 0x01 << (src & 0x07);
-			PSW.Z = IS_ZERO(dest & src);
+			PSW.field.Z = IS_ZERO(dest & src);
 			break;
 
 		case _ALU_RB:
 			// reset bit
 			src = 0x01 << (src & 0x07);
-			PSW.Z = IS_ZERO(dest & src);
+			PSW.field.Z = IS_ZERO(dest & src);
 			dest &= ~src;
 			break;
 	}
@@ -286,9 +286,38 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 }
 
 
+// Pushes a value onto U8 stack
+// Note that it modifies SP
+static void _pushValue(uint64_t value, uint8_t bytes) {
+	Data_t tempData = {.raw = value};
+	bytes = ((bytes > 8)? 8 : bytes);
+	if( bytes & 0x01 )
+		--SP;
+	while( bytes-- > 0 ) {
+		memorySetData(0, --SP, 1, tempData);
+		tempData.raw >>= 8;
+	}
+}
+
+// Pops a value from U8 stack
+// Note that it modifies SP
+static Data_t _popValue(uint8_t bytes) {
+	Data_t tempData = {.raw = 0};
+	bytes = ((bytes > 8)? 8 : bytes);
+	while( bytes-- > 0 ) {
+		tempData.raw <<= 8;
+		memoryGetData(0, SP++, 1);
+		tempData.byte = DataRaw.byte;
+	}
+	if( bytes & 0x01 )
+		++SP;
+	return tempData;
+}
+
+
 // Gets pointer to current EPSW
 static PSW_t* _getCurrEPSW(void) {
-	switch( PSW.ELevel ) {
+	switch( PSW.field.ELevel ) {
 		case 2:
 			return &EPSW2;
 		case 3:
@@ -300,7 +329,7 @@ static PSW_t* _getCurrEPSW(void) {
 
 // Gets pointer to current ELR
 static PC_t* _getCurrELR(void) {
-	switch( PSW.ELevel ) {
+	switch( PSW.field.ELevel ) {
 		case 1:
 			return &ELR1;
 		case 2:
@@ -314,7 +343,7 @@ static PC_t* _getCurrELR(void) {
 
 // Gets pointer to current ECSR
 static SR_t* _getCurrECSR(void) {
-	switch( PSW.ELevel ) {
+	switch( PSW.field.ELevel ) {
 		case 1:
 			return &ECSR1;
 		case 2:
@@ -414,7 +443,7 @@ CORE_STATUS coreDispRegs(void) {
 	printf("\tDSR = %02Xh\n", DSR);
 	printf("\tEA = %04Xh\n", EA);
 	printf("\tPSW = %02Xh\n", PSW.raw);
-	printf("\t\tC Z S V I H MIE\n\t\t%1d %1d %1d %1d %1d %1d  %1d\n", PSW.C, PSW.Z, PSW.S, PSW.OV, PSW.MIE, PSW.HC, PSW.ELevel);
+	printf("\t\tC Z S V I H MIE\n\t\t%1d %1d %1d %1d %1d %1d  %1d\n", PSW.field.C, PSW.field.Z, PSW.field.S, PSW.field.OV, PSW.field.MIE, PSW.field.HC, PSW.field.ELevel);
 
 	printf("\n\tLCSR:LR = %01X:%04Xh\n", LCSR, LR);
 	printf("\tECSR1:ELR1 = %01X:%04Xh\n", ECSR1, ELR1);
@@ -480,8 +509,8 @@ CORE_STATUS coreStep(void) {
 			CycleCount = 1;
 			GR.rs[regNumDest] = immNum;
 
-			PSW.Z = IS_ZERO(immNum);
-			PSW.S = SIGN8(immNum);
+			PSW.field.Z = IS_ZERO(immNum);
+			PSW.field.S = SIGN8(immNum);
 			break;
 
 		case 0x10:
@@ -650,8 +679,8 @@ CORE_STATUS coreStep(void) {
 			CycleCount = 1;
 			src = GR.rs[regNumSrc];
 
-			PSW.Z = IS_ZERO(src);
-			PSW.S = SIGN8(src);
+			PSW.field.Z = IS_ZERO(src);
+			PSW.field.S = SIGN8(src);
 
 			GR.rs[regNumDest] = src;
 			break;
@@ -742,7 +771,7 @@ CORE_STATUS coreStep(void) {
 			src = GR.rs[regNumSrc] & 0x07;
 
 			dest >>= (8 - src);
-			PSW.C = (dest & 0x100)? 1 : 0;
+			PSW.field.C = (dest & 0x100)? 1 : 0;
 
 			GR.rs[regNumDest] = (dest & 0xff);
 
@@ -763,7 +792,7 @@ CORE_STATUS coreStep(void) {
 			src = GR.rs[regNumSrc] & 0x07;
 
 			dest >>= src;
-			PSW.C = dest & 0x01;
+			PSW.field.C = dest & 0x01;
 			dest = (dest >> 1) & 0xff;
 
 			GR.rs[regNumDest] = (dest & 0xff);
@@ -783,10 +812,10 @@ CORE_STATUS coreStep(void) {
 				//EXTBW ERn
 				src = GR.rs[regNumSrc];
 
-				PSW.S = SIGN8(dest);
-				PSW.Z = IS_ZERO(dest);
+				PSW.field.S = SIGN8(dest);
+				PSW.field.Z = IS_ZERO(dest);
 
-				GR.rs[regNumDest] = PSW.S? 0xff : 0;
+				GR.rs[regNumDest] = PSW.field.S? 0xff : 0;
 				break;
 			}
 			switch( CodeWord & 0xf0ff ) {
@@ -859,8 +888,8 @@ CORE_STATUS coreStep(void) {
 			dest = DataRaw.byte;
 			CycleCount += 1 + ROMWinAccessCount;
 
-			PSW.S = SIGN8(dest);
-			PSW.Z = IS_ZERO(dest);
+			PSW.field.S = SIGN8(dest);
+			PSW.field.Z = IS_ZERO(dest);
 			GR.rs[regNumDest] = dest;
 			break;
 
@@ -872,7 +901,7 @@ CORE_STATUS coreStep(void) {
 			}
 			else {
 				switch( CodeWord & 0xf0ff ) {
-					case 0x9010:
+					case 0x9011:
 						// ST Rn, [adr]
 						// fetch destination address
 						memoryGetCodeWord(CSR, PC);
@@ -881,12 +910,12 @@ CORE_STATUS coreStep(void) {
 						PC = (PC + 2) & 0xfffe;
 						break;
 
-					case 0x9030:
+					case 0x9031:
 						// ST Rn, [EA]
 						dest = EA;
 						break;
 
-					case 0x9050:
+					case 0x9051:
 						// ST Rn, [EA+]
 						dest = EA;
 						EA += 1; isEAInc = true;
@@ -941,8 +970,8 @@ CORE_STATUS coreStep(void) {
 			dest = DataRaw.word;
 			CycleCount += 2 + ROMWinAccessCount;
 
-			PSW.S = SIGN16(dest);
-			PSW.Z = IS_ZERO(dest);
+			PSW.field.S = SIGN16(dest);
+			PSW.field.Z = IS_ZERO(dest);
 			GR.ers[regNumDest >> 1] = dest;
 			break;
 
@@ -1007,8 +1036,8 @@ CORE_STATUS coreStep(void) {
 			dest = DataRaw.dword;
 			CycleCount = 4 + ROMWinAccessCount;
 
-			PSW.S = SIGN32(dest);
-			PSW.Z = IS_ZERO(dest);
+			PSW.field.S = SIGN32(dest);
+			PSW.field.Z = IS_ZERO(dest);
 			GR.xrs[regNumDest >> 2] = dest;
 			break;
 
@@ -1057,8 +1086,8 @@ CORE_STATUS coreStep(void) {
 			dest = DataRaw.qword;
 			CycleCount = 8 + ROMWinAccessCount;
 
-			PSW.S = SIGN64(dest);
-			PSW.Z = IS_ZERO(dest);
+			PSW.field.S = SIGN64(dest);
+			PSW.field.Z = IS_ZERO(dest);
 			GR.qrs[regNumDest >> 3] = dest;
 			break;
 
@@ -1136,7 +1165,7 @@ CORE_STATUS coreStep(void) {
 			src = regNumSrc & 0x07;
 
 			dest >>= (8 - src);
-			PSW.C = (dest & 0x100)? 1 : 0;
+			PSW.field.C = (dest & 0x100)? 1 : 0;
 
 			GR.rs[regNumDest] = (dest & 0xff);
 
@@ -1165,7 +1194,7 @@ CORE_STATUS coreStep(void) {
 			src = regNumSrc & 0x07;
 
 			dest >>= src;
-			PSW.C = dest & 0x01;
+			PSW.field.C = dest & 0x01;
 			dest = (dest >> 1) & 0xff;
 
 			GR.rs[regNumDest] = (dest & 0xff);
@@ -1270,7 +1299,7 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// MOV Rn, EPSW
-			if( PSW.ELevel != 0 )
+			if( PSW.field.ELevel != 0 )
 				GR.rs[regNumDest] = _getCurrEPSW()->raw;
 			CycleCount = 2;
 			break;
@@ -1329,13 +1358,19 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xaa:
-			if( (CodeWord & 0x0f10) != 0x0110 ) {
-				retVal = CORE_ILLEGAL_INSTRUCTION;
+			if( (CodeWord & 0x01f0) == 0x0010 ) {
+				// MOV ERn, SP
+				GR.ers[regNumDest >> 1] = SP;
+				CycleCount = 1;
 				break;
 			}
-			// MOV SP, ERm
-			SP = GR.ers[regNumSrc >> 1];
-			CycleCount = 1;
+			if( (CodeWord & 0x01f0) == 0x0010 ) {
+				// MOV SP, ERm
+				SP = GR.ers[regNumSrc >> 1];
+				CycleCount = 1;
+				break;
+			}
+			retVal = CORE_ILLEGAL_INSTRUCTION;
 			break;
 
 		case 0xab:
@@ -1461,59 +1496,59 @@ CORE_STATUS coreStep(void) {
 			switch( CodeWord & 0x0f00 ) {
 				case 0x0000:
 					// GE
-					src = !PSW.C;
+					src = !PSW.field.C;
 					break;
 				case 0x0100:
 					// LT
-					src = PSW.C;
+					src = PSW.field.C;
 					break;
 				case 0x0200:
 					// GT
-					src = !(PSW.C || PSW.Z);
+					src = !(PSW.field.C || PSW.field.Z);
 					break;
 				case 0x0300:
 					// LE
-					src = PSW.C || PSW.Z;
+					src = PSW.field.C || PSW.field.Z;
 					break;
 				case 0x0400:
 					// GES
-					src = !(PSW.OV ^ PSW.S);
+					src = !(PSW.field.OV ^ PSW.field.S);
 					break;
 				case 0x0500:
 					// LTS
-					src = PSW.OV ^ PSW.S;
+					src = PSW.field.OV ^ PSW.field.S;
 					break;
 				case 0x0600:
 					// GTS
-					src = !((PSW.OV ^ PSW.S) | PSW.Z);
+					src = !((PSW.field.OV ^ PSW.field.S) | PSW.field.Z);
 					break;
 				case 0x0700:
 					// LES
-					src = (PSW.OV ^ PSW.S) | PSW.Z;
+					src = (PSW.field.OV ^ PSW.field.S) | PSW.field.Z;
 					break;
 				case 0x0800:
 					// NE
-					src = !PSW.Z;
+					src = !PSW.field.Z;
 					break;
 				case 0x0900:
 					// EQ
-					src = PSW.Z;
+					src = PSW.field.Z;
 					break;
 				case 0x0a00:
 					// NV
-					src = !PSW.OV;
+					src = !PSW.field.OV;
 					break;
 				case 0x0b00:
 					// OV
-					src = PSW.OV;
+					src = PSW.field.OV;
 					break;
 				case 0x0c00:
 					// PS
-					src = !PSW.S;
+					src = !PSW.field.S;
 					break;
 				case 0x0d00:
 					// NS
-					src = PSW.S;
+					src = PSW.field.S;
 					break;
 				case 0x0e00:
 					// AL
@@ -1528,7 +1563,7 @@ CORE_STATUS coreStep(void) {
 			CycleCount = 1;
 			if( src ) {
 				PC += (_signExtend(immNum, 8) << 1) & 0xffff;
-				CycleCount += 2;
+				CycleCount = 3;
 			}
 			break;
 
@@ -1612,8 +1647,8 @@ CORE_STATUS coreStep(void) {
 				// MOV ERn, #imm7
 				src = _signExtend(CodeWord & 0x007f, 7);
 				GR.ers[regNumDest >> 1] = src;
-				PSW.Z = IS_ZERO(src);
-				PSW.S = SIGN16(src);
+				PSW.field.Z = IS_ZERO(src);
+				PSW.field.S = SIGN16(src);
 				CycleCount = 2;
 				break;
 			}
@@ -1652,13 +1687,13 @@ CORE_STATUS coreStep(void) {
 				case 0x0b00:
 					if( CodeWord == 0xfb7f ) {
 						// RC
-						PSW.C = 0;
+						PSW.field.C = 0;
 						CycleCount = 1;
 						break;
 					}
 					if( CodeWord == 0xfbf7 ) {
 						// DI
-						PSW.MIE = 0;
+						PSW.field.MIE = 0;
 						CycleCount = 3;
 						break;
 					}
@@ -1669,14 +1704,14 @@ CORE_STATUS coreStep(void) {
 				case 0x0d00:
 					if( CodeWord == 0xfd08 ) {
 						// EI
-						PSW.MIE = 1;
+						PSW.field.MIE = 1;
 						CycleCount = 1;
 						// Todo: Disable maskable interrupts for 2 cycles
 						break;
 					}
 					if( CodeWord == 0xfd80 ) {
 						// SC
-						PSW.C = 1;
+						PSW.field.C = 1;
 						CycleCount = 1;
 						break;
 					}
@@ -1686,9 +1721,385 @@ CORE_STATUS coreStep(void) {
 			}
 			break;
 
+		case 0xf0:
+			if( (CodeWord & 0x00f0) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// B Cadr
+			memoryGetCodeWord(CSR, PC);
+			PC = CodeWord & 0xfffe;
+			CSR = regNumDest;
+			CycleCount = 2 + EAIncDelay;
+			break;
+
+		case 0xf1:
+			if( (CodeWord & 0x00f0) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// BL Cadr
+			memoryGetCodeWord(CSR, PC);
+			LR = (PC + 2) & 0xfffe;
+			LCSR = CSR;
+			PC = CodeWord & 0xfffe;
+			CSR = regNumDest;
+			CycleCount = 2 + EAIncDelay;
+			break;
+
+		case 0xf2:
+			if( (CodeWord & 0x0f10) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// B ERn
+			PC = GR.ers[regNumSrc >> 1] & 0xfffe;
+			CycleCount = 2 + EAIncDelay;
+			break;
+
+		case 0xf3:
+			if( (CodeWord & 0x0f10) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// BL ERn
+			LR = (PC + 2) & 0xfffe;
+			LCSR = CSR;
+			PC = GR.ers[regNumSrc >> 1] & 0xfffe;
+			CycleCount = 2 + EAIncDelay;
+			break;
+
+		case 0xf4:
+			if( (CodeWord & 0x0100) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// MUL ERn, Rm
+			CycleCount = 8;
+			dest = GR.rs[regNumDest] * GR.rs[regNumSrc];
+			PSW.field.Z = IS_ZERO(dest);
+			GR.ers[regNumDest >> 1] = dest & 0xffff;
+			break;
+
+		case 0xf5:
+			if( (CodeWord & 0x0110) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// MOV ERn, ERm
+			CycleCount = 2;
+			dest = GR.ers[regNumSrc >> 1];
+			PSW.field.Z = IS_ZERO(dest);
+			PSW.field.S = SIGN16(dest);
+			GR.ers[regNumDest >> 1] = dest;
+			break;
+
+		case 0xf6:
+			if( (CodeWord & 0x0110) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// ADD ERn, ERm
+			CycleCount = 2;
+			GR.ers[regNumDest >> 1] = _ALU(GR.ers[regNumDest >> 1], GR.ers[regNumSrc >> 1], _ALU_ADD_W);
+			break;
+
+		case 0xf7:
+			if( (CodeWord & 0x0110) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// CMP ERn, ERm
+			CycleCount = 2;
+			GR.ers[regNumDest >> 1] = _ALU(GR.ers[regNumDest >> 1], GR.ers[regNumSrc >> 1], _ALU_CMP_W);
+			break;
+
+		case 0xf9:
+			if( (CodeWord & 0x0100) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// DIV ERn, Rm
+			dest = GR.ers[regNumDest >> 1];
+			src = GR.rs[regNumSrc];
+			CycleCount = 16;
+			PSW.field.Z = IS_ZERO(dest);
+			PSW.field.C = 0;
+			if( src == 0 ) {
+				// Divisor is 0
+				PSW.field.C = 1;
+				GR.rs[regNumSrc] = dest & 0xff;		// remainder
+				GR.ers[regNumDest >> 1] = 0xffff;	// result
+				break;
+			}
+			// Else both number are not zero
+			GR.rs[regNumSrc] = (dest % src) & 0xff;
+			GR.ers[regNumDest] = (dest / src) & 0xffff;
+			break;
+
+		case 0xfa:
+			if( (CodeWord & 0x0010) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// LEA [ERm]
+			EA = GR.ers[regNumSrc >> 1];
+			CycleCount = 1;
+			break;
+
+		case 0xfb:
+			if( (CodeWord & 0x0010) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// LEA disp16[ERm]
+			dest = GR.ers[regNumSrc >> 1];
+			memoryGetCodeWord(CSR, PC);
+			PC = (PC + 2) & 0xfffe;
+			EA = (CodeWord + dest) & 0xffff;
+			CycleCount = 2;
+			break;
+
+		case 0xfc:
+			if( (CodeWord & 0x0010) != 0x0000 ) {
+				retVal = CORE_ILLEGAL_INSTRUCTION;
+				break;
+			}
+			// LEA Dadr
+			memoryGetCodeWord(CSR, PC);
+			PC = (PC + 2) & 0xfffe;
+			EA = CodeWord;
+			CycleCount = 2;
+			break;
+
+		case 0xfd:
+			// MOV CRn, [EA]
+			// MOV CRn, [EA+]
+			// MOV CERn, [EA]
+			// MOV CERn, [EA+]
+			// MOV CXRn, [EA]
+			// MOV CXRn, [EA+]
+			// MOV CQRn, [EA]
+			// MOV CQRn, [EA+]
+			// MOV [EA], CRm
+			// MOV [EA+], CRm
+			// MOV [EA], CERm
+			// MOV [EA+], CERm
+			// MOV [EA], CXRm
+			// MOV [EA+], CXRm
+			// MOV [EA], CQRm
+			// MOV [EA+], CQRm
+			retVal = CORE_UNIMPLEMENTED;
+			break;
+
+		case 0xfe:
+			switch( CodeWord & 0x00f0 ) {
+				case 0x0000:
+					// POP Rn
+					GR.rs[regNumDest] = _popValue(1).byte;
+					CycleCount = 2 + EAIncDelay;
+					break;
+
+				case 0x0010:
+					// POP ERn
+					if( (regNumDest & 0x01) != 0x00 ) {
+						retVal = CORE_ILLEGAL_INSTRUCTION;
+						break;
+					}
+					GR.ers[regNumDest >> 1] = _popValue(2).word;
+					CycleCount = 2 + EAIncDelay;
+					break;
+
+				case 0x0020:
+					// POP XRn
+					if( (regNumDest & 0x03) != 0x00 ) {
+						retVal = CORE_ILLEGAL_INSTRUCTION;
+						break;
+					}
+					GR.xrs[regNumDest >> 2] = _popValue(4).dword;
+					CycleCount = 4 + EAIncDelay;
+					break;
+
+				case 0x0030:
+					// POP QRn
+					if( (regNumDest & 0x07) != 0x00 ) {
+						retVal = CORE_ILLEGAL_INSTRUCTION;
+						break;
+					}
+					GR.qrs[regNumDest >> 3] = _popValue(8).qword;
+					CycleCount = 8 + EAIncDelay;
+					break;
+
+				case 0x0040:
+					// PUSH Rn
+					_pushValue(GR.rs[regNumDest], 1);
+					CycleCount = 2 + EAIncDelay;
+					break;
+
+				case 0x0050:
+					// PUSH ERn
+					if( (regNumDest & 0x01) != 0x00 ) {
+						retVal = CORE_ILLEGAL_INSTRUCTION;
+						break;
+					}
+					_pushValue(GR.ers[regNumDest >> 1], 2);
+					CycleCount = 2 + EAIncDelay;
+					break;
+
+				case 0x0060:
+					// PUSH XRn
+					if( (regNumDest & 0x03) != 0x00 ) {
+						retVal = CORE_ILLEGAL_INSTRUCTION;
+						break;
+					}
+					_pushValue(GR.xrs[regNumDest >> 2], 4);
+					CycleCount = 4 + EAIncDelay;
+					break;
+
+				case 0x0070:
+					// PUSH QRn
+					if( (regNumDest & 0x07) != 0x00 ) {
+						retVal = CORE_ILLEGAL_INSTRUCTION;
+						break;
+					}
+					_pushValue(GR.qrs[regNumDest >> 3], 8);
+					CycleCount = 8 + EAIncDelay;
+					break;
+
+				case 0x0080:
+					// PUSH lepa
+					// Assume LARGE model (with CSR)
+					if( regNumDest & 0x02 ) {
+						// ELR
+						_pushValue(*_getCurrECSR(), 1);
+						_pushValue(*_getCurrELR(), 2);
+						CycleCount += 4;
+					}
+					if( regNumDest & 0x04 ) {
+						// EPSW
+						_pushValue(_getCurrEPSW()->raw, 2);
+						CycleCount += 2;
+					}
+					if( regNumDest & 0x08 ) {
+						// LR
+						_pushValue(CSR, 1);
+						_pushValue(LR, 2);
+						CycleCount += 4;
+					}
+					if( regNumDest & 0x01 ) {
+						// EA
+						_pushValue(EA, 2);
+						CycleCount += 2;
+					}
+					if( CycleCount )
+						CycleCount = 1;		// Assume 1 cycle if no register
+					else
+						CycleCount += EAIncDelay;
+					break;
+
+				case 0x00c0:
+					// POP lepa
+					// Assume LARGE model (with CSR)
+					if( regNumDest & 0x01 ) {
+						// EA
+						EA = _popValue(2).byte;
+						CycleCount += 2;
+					}
+					if( regNumDest & 0x08 ) {
+						// LR
+						LR = _popValue(2).word;
+						LCSR = _popValue(1).byte;
+						CycleCount += 4;
+					}
+					if( regNumDest & 0x04 ) {
+						// PSW
+						PSW.raw = _popValue(1).byte;
+						CycleCount += 2;
+					}
+					if( regNumDest & 0x02 ) {
+						// PC
+						PC = _popValue(2).word & 0xfffe;
+						CSR = _popValue(1).byte;
+						CycleCount += 7;
+					}
+					if( CycleCount )
+						CycleCount = 1;		// Assume 1 cycle if no register
+					else
+						CycleCount += EAIncDelay;
+					break;
+
+				default:
+					retVal = CORE_ILLEGAL_INSTRUCTION;
+					break;
+
+			}
+			break;
+
+		case 0xff:
+			switch( CodeWord ) {
+				case 0xfe0f:
+					// RTI
+					CSR = *_getCurrECSR();
+					PC = *_getCurrELR();
+					PSW.raw = _getCurrEPSW()->raw;
+					CycleCount = 2 + EAIncDelay;
+					break;
+
+				case 0xfe1f:
+					// RT
+					CSR = LCSR;
+					PC = LR;
+					CycleCount = 2 + EAIncDelay;
+					break;
+
+				case 0xfe2f:
+					// INC [EA]
+					memoryGetData(GET_DATA_SEG, EA, 1);
+					tempData.byte = _ALU(tempData.byte, 1, _ALU_ADD);
+					memorySetData(GET_DATA_SEG, EA, 1, tempData);
+					CycleCount = 2 + EAIncDelay;
+					break;
+
+				case 0xfe3f:
+					// DEC [EA]
+					memoryGetData(GET_DATA_SEG, EA, 1);
+					tempData.byte = _ALU(tempData.byte, 1, _ALU_SUB);
+					memorySetData(GET_DATA_SEG, EA, 1, tempData);
+					CycleCount = 2 + EAIncDelay;
+					break;
+
+				case 0xfe8f:
+					// NOP
+					CycleCount = 1;
+					break;
+
+				case 0xfe9f:
+					// _UDSR
+					isDSRSet = true;
+					CycleCount = 1;
+					break;
+
+				case 0xfecf:
+					// CPLC
+					PSW.field.C ^= 1;
+					CycleCount = 1;
+					break;
+
+				case 0xffff:
+					// BRK
+					retVal = CORE_UNIMPLEMENTED;
+					break;
+
+				default:
+					retVal = CORE_ILLEGAL_INSTRUCTION;
+					break;
+
+			}
+			break;
+
 		default:
 			retVal = CORE_ILLEGAL_INSTRUCTION;
-			break;	
+			break;
 	}
 
 

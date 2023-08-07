@@ -18,7 +18,7 @@ typedef union {
 		uint8_t S	:1;
 		uint8_t Z	:1;
 		uint8_t C	:1;
-	};
+	} field;
 } PSW_t;
 typedef union {
 	uint64_t qrs[2];
