@@ -186,7 +186,7 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 
 		case _ALU_SRL:
 			// logical shift right
-			retVal = (dest << 1) >> ((src & 0x07) + 1);	// leave space for carry flag
+			retVal = (dest << 1) >> (src & 0x07);	// leave space for carry flag
 			PSW.field.C = retVal & 0x01;
 			retVal = (retVal >> 1) & 0xff;
 			break;
