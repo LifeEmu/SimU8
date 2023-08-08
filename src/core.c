@@ -1667,6 +1667,7 @@ CORE_STATUS coreStep(void) {
 
 				case 0x0300:
 					// _LDSR #imm8
+					DSR = immNum;
 					isDSRSet = true;
 					CycleCount = 1;
 					break;
