@@ -18,14 +18,22 @@ Example: If you want to use features from "core", include `inc/core.h` in your s
 
 
 ## Testing
-This branch has 3 C source files, containing (bad) example code that I wrote.
-
-You can start with `testcore.c` first:
+**NOTE**: `testcore.c` uses `conio.h`, so it probably won't work unmodified under non-Windows system!
 - Put the binary you want to run into the root directory of this repository and rename it to `rom.bin`. (you can change the name of the file in `testcore.c`)
 - `cd` to the repository in `cmd` and run `<your compiler> testcore.c src/mmu.c src/core.c <other compiler options>`.
 - Run the binary that you've just got from the compiler.
-- Hit \[ENTER\] to step, type `q` to exit.
 
+Commands:
+| Char | Function                                |
+| ---- | --------------------------------------- |
+| `r`  | Show registers                          |
+| `a`  | Show base addresses of allocated memory |
+| `s`  | Enable single-step mode                 |
+| `p`  | Resume execution ("unPause")            |
+| `b`  | Set & enable a breakpoint               |
+| `n`  | Disable the breakpoint                  |
+| `c`  | Reset core                              |
+| `d`  | Display VRAM                            |
 
 ## Credit
 - [Fraserbc on GitHub](https://github.com/Fraserbc) for knowledge about pipeline
