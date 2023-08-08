@@ -290,11 +290,13 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 // Note that it modifies SP
 static void _pushValue(uint64_t value, uint8_t bytes) {
 	Data_t tempData = {.raw = value};
+	int i = 0;
 	bytes = ((bytes > 8)? 8 : bytes);
 	if( bytes & 0x01 )
 		--SP;
+	SP -= bytes;
 	while( bytes-- > 0 ) {
-		memorySetData(0, --SP, 1, tempData);
+		memorySetData(0, SP + i++, 1, tempData);
 		tempData.raw >>= 8;
 	}
 }
@@ -1438,7 +1440,7 @@ CORE_STATUS coreStep(void) {
 				case 0x0000:
 					// L ERn, disp6[BP]
 					src = GR.ers[12 >> 1];		// src = ER12
-					src = (src + _signExtend((CodeWord & 0x003f), 6)) & 0xffff;
+					src = (src + _signExtend(CodeWord & 0x003f, 6)) & 0xffff;
 					memoryGetData(GET_DATA_SEG, src, 2);
 					GR.ers[regNumDest >> 1] = DataRaw.word;
 					CycleCount += ROMWinAccessCount;
@@ -1447,7 +1449,7 @@ CORE_STATUS coreStep(void) {
 				case 0x0040:
 					// L ERn, disp6[FP]
 					src = GR.ers[14 >> 1];		// src = ER14
-					src = (src + _signExtend((CodeWord & 0x003f), 6)) & 0xffff;
+					src = (src + _signExtend(CodeWord & 0x003f, 6)) & 0xffff;
 					memoryGetData(GET_DATA_SEG, src, 2);
 					GR.ers[regNumDest >> 1] = DataRaw.word;
 					CycleCount += ROMWinAccessCount;
@@ -1455,26 +1457,25 @@ CORE_STATUS coreStep(void) {
 
 				case 0x0080:
 					// ST ERn, disp6[BP]
-					dest = GR.ers[14 >> 1];		// dest = ER12
-					dest = (dest + _signExtend((CodeWord & 0x003f), 6)) & 0xffff;
+					dest = GR.ers[12 >> 1];		// dest = ER12
+					dest = (dest + _signExtend(CodeWord & 0x003f, 6)) & 0xffff;
 					tempData.word = GR.ers[regNumDest >> 1];
-					memorySetData(GET_DATA_SEG, src, 2, tempData);
+					memorySetData(GET_DATA_SEG, dest, 2, tempData);
 					break;
 
 				case 0x00c0:
 					// ST ERn, disp6[FP]
 					dest = GR.ers[14 >> 1];		// dest = ER14
-					dest = (dest + _signExtend((CodeWord & 0x003f), 6)) & 0xffff;
+					dest = (dest + _signExtend(CodeWord & 0x003f, 6)) & 0xffff;
 					tempData.word = GR.ers[regNumDest >> 1];
-					memorySetData(GET_DATA_SEG, src, 2, tempData);
+					memorySetData(GET_DATA_SEG, dest, 2, tempData);
 					break;
 
 				default:
 					retVal = CORE_ILLEGAL_INSTRUCTION;
-					break;
+					goto exit;
 			}
-			if( retVal != CORE_ILLEGAL_INSTRUCTION )
-				CycleCount += 3 + EAIncDelay;
+			CycleCount += 3 + EAIncDelay;
 			break;
 
 		case 0xc0:
@@ -1556,10 +1557,8 @@ CORE_STATUS coreStep(void) {
 					break;
 				case 0x0f00:
 					retVal = CORE_ILLEGAL_INSTRUCTION;
-					break;
+					goto exit;
 			}
-			if( retVal == CORE_ILLEGAL_INSTRUCTION )
-				break;
 			CycleCount = 1;
 			if( src ) {
 				PC += (_signExtend(immNum, 8) << 1) & 0xffff;
@@ -1587,7 +1586,7 @@ CORE_STATUS coreStep(void) {
 				case 0x0000:
 					// L Rn, disp6[BP]
 					src = GR.ers[12 >> 1];		// src = ER12
-					src = (src + _signExtend((CodeWord & 0x003f), 6)) & 0xffff;
+					src = (src + _signExtend(CodeWord & 0x003f, 6)) & 0xffff;
 					memoryGetData(GET_DATA_SEG, src, 1);
 					GR.rs[regNumDest] = DataRaw.byte;
 					CycleCount += ROMWinAccessCount;
@@ -1596,7 +1595,7 @@ CORE_STATUS coreStep(void) {
 				case 0x0040:
 					// L Rn, disp6[FP]
 					src = GR.ers[14 >> 1];		// src = ER14
-					src = (src + _signExtend((CodeWord & 0x003f), 6)) & 0xffff;
+					src = (src + _signExtend(CodeWord & 0x003f, 6)) & 0xffff;
 					memoryGetData(GET_DATA_SEG, src, 1);
 					GR.rs[regNumDest >> 1] = DataRaw.byte;
 					CycleCount += ROMWinAccessCount;
@@ -1604,26 +1603,25 @@ CORE_STATUS coreStep(void) {
 
 				case 0x0080:
 					// ST Rn, disp6[BP]
-					dest = GR.ers[14 >> 1];		// dest = ER12
-					dest = (dest + _signExtend((CodeWord & 0x003f), 6)) & 0xffff;
+					dest = GR.ers[12 >> 1];		// dest = ER12
+					dest = (dest + _signExtend(CodeWord & 0x003f, 6)) & 0xffff;
 					tempData.byte = GR.rs[regNumDest];
-					memorySetData(GET_DATA_SEG, src, 1, tempData);
+					memorySetData(GET_DATA_SEG, dest, 1, tempData);
 					break;
 
 				case 0x00c0:
 					// ST Rn, disp6[FP]
 					dest = GR.ers[14 >> 1];		// dest = ER14
-					dest = (dest + _signExtend((CodeWord & 0x003f), 6)) & 0xffff;
+					dest = (dest + _signExtend(CodeWord & 0x003f, 6)) & 0xffff;
 					tempData.byte = GR.rs[regNumDest];
-					memorySetData(GET_DATA_SEG, src, 1, tempData);
+					memorySetData(GET_DATA_SEG, dest, 1, tempData);
 					break;
 
 				default:
 					retVal = CORE_ILLEGAL_INSTRUCTION;
-					break;
+					goto exit;
 			}
-			if( retVal != CORE_ILLEGAL_INSTRUCTION )
-				CycleCount += 3 + EAIncDelay;
+			CycleCount += 3 + EAIncDelay;
 			break;
 
 		case 0xe0:
