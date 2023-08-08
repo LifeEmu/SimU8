@@ -305,14 +305,14 @@ static void _pushValue(uint64_t value, uint8_t bytes) {
 // Note that it modifies SP
 static Data_t _popValue(uint8_t bytes) {
 	Data_t tempData = {.raw = 0};
+	EA_t adj = (bytes + 1) & 0xfffe;
 	bytes = ((bytes > 8)? 8 : bytes);
 	while( bytes-- > 0 ) {
 		tempData.raw <<= 8;
-		memoryGetData(0, SP++, 1);
+		memoryGetData(0, SP + bytes, 1);
 		tempData.byte = DataRaw.byte;
 	}
-	if( bytes & 0x01 )
-		++SP;
+	SP += adj;
 	return tempData;
 }
 
@@ -1505,11 +1505,11 @@ CORE_STATUS coreStep(void) {
 					break;
 				case 0x0200:
 					// GT
-					src = !(PSW.field.C || PSW.field.Z);
+					src = !(PSW.field.C | PSW.field.Z);
 					break;
 				case 0x0300:
 					// LE
-					src = PSW.field.C || PSW.field.Z;
+					src = PSW.field.C | PSW.field.Z;
 					break;
 				case 0x0400:
 					// GES
@@ -1582,7 +1582,7 @@ CORE_STATUS coreStep(void) {
 		case 0xdd:
 		case 0xde:
 		case 0xdf:
-			switch( CodeWord & 0x01c0 ) {
+			switch( CodeWord & 0x00c0 ) {
 				case 0x0000:
 					// L Rn, disp6[BP]
 					src = GR.ers[12 >> 1];		// src = ER12
@@ -1965,37 +1965,6 @@ CORE_STATUS coreStep(void) {
 					break;
 
 				case 0x0080:
-					// PUSH lepa
-					// Assume LARGE model (with CSR)
-					if( regNumDest & 0x02 ) {
-						// ELR
-						_pushValue(*_getCurrECSR(), 1);
-						_pushValue(*_getCurrELR(), 2);
-						CycleCount += 4;
-					}
-					if( regNumDest & 0x04 ) {
-						// EPSW
-						_pushValue(_getCurrEPSW()->raw, 2);
-						CycleCount += 2;
-					}
-					if( regNumDest & 0x08 ) {
-						// LR
-						_pushValue(CSR, 1);
-						_pushValue(LR, 2);
-						CycleCount += 4;
-					}
-					if( regNumDest & 0x01 ) {
-						// EA
-						_pushValue(EA, 2);
-						CycleCount += 2;
-					}
-					if( CycleCount )
-						CycleCount = 1;		// Assume 1 cycle if no register
-					else
-						CycleCount += EAIncDelay;
-					break;
-
-				case 0x00c0:
 					// POP lepa
 					// Assume LARGE model (with CSR)
 					if( regNumDest & 0x01 ) {
@@ -2019,6 +1988,37 @@ CORE_STATUS coreStep(void) {
 						PC = _popValue(2).word & 0xfffe;
 						CSR = _popValue(1).byte;
 						CycleCount += 7;
+					}
+					if( CycleCount )
+						CycleCount = 1;		// Assume 1 cycle if no register
+					else
+						CycleCount += EAIncDelay;
+					break;
+
+				case 0x00c0:
+					// PUSH lepa
+					// Assume LARGE model (with CSR)
+					if( regNumDest & 0x02 ) {
+						// ELR
+						_pushValue(*_getCurrECSR(), 1);
+						_pushValue(*_getCurrELR(), 2);
+						CycleCount += 4;
+					}
+					if( regNumDest & 0x04 ) {
+						// EPSW
+						_pushValue(_getCurrEPSW()->raw, 1);
+						CycleCount += 2;
+					}
+					if( regNumDest & 0x08 ) {
+						// LR
+						_pushValue(CSR, 1);
+						_pushValue(LR, 2);
+						CycleCount += 4;
+					}
+					if( regNumDest & 0x01 ) {
+						// EA
+						_pushValue(EA, 2);
+						CycleCount += 2;
 					}
 					if( CycleCount )
 						CycleCount = 1;		// Assume 1 cycle if no register
