@@ -1970,7 +1970,7 @@ CORE_STATUS coreStep(void) {
 					// Assume LARGE model (with CSR)
 					if( regNumDest & 0x01 ) {
 						// EA
-						EA = _popValue(2).byte;
+						EA = _popValue(2).word;
 						CycleCount += 2;
 					}
 					if( regNumDest & 0x08 ) {
