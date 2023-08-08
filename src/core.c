@@ -1582,7 +1582,7 @@ CORE_STATUS coreStep(void) {
 		case 0xdd:
 		case 0xde:
 		case 0xdf:
-			switch( CodeWord & 0x01c0 ) {
+			switch( CodeWord & 0x00c0 ) {
 				case 0x0000:
 					// L Rn, disp6[BP]
 					src = GR.ers[12 >> 1];		// src = ER12
