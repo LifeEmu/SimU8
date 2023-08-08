@@ -28,14 +28,38 @@ void setPix(int x, int y, int c) {
 
 void updateDisp() {
 	int x, y;
-	for( y = 0; y < LCD_HEIGHT; ++y ) {
+	// status bar area
+/*
+ * 123456781234567812345678123456781234567812345678123456781234567812345678123456781234567812345678
+ * [S] [A]   M   STO  RCL    STAT  CMPLX  MAT  VCT   [D]  [R]  [G]    FIX  SCI   Math   v  ^   Disp
+ */
+	fputs((*VBuf & 0x10)? "\n[S] " : "\n    ", stdout);
+	fputs((*VBuf & 0x04)? "[A]   " : "      ", stdout);
+	fputs((*(VBuf + 1) & 0x10)? "M   " : "    ", stdout);
+	fputs((*(VBuf + 1) & 0x02)? "STO  " : "     ", stdout);
+	fputs((*(VBuf + 2) & 0x40)? "RCL    " : "       ", stdout);
+	fputs((*(VBuf + 3) & 0x40)? "STAT  " : "      ", stdout);
+	fputs((*(VBuf + 4) & 0x80)? "CMPLX  " : "       ", stdout);
+	fputs((*(VBuf + 5) & 0x40)? "MAT  " : "     ", stdout);
+	fputs((*(VBuf + 5) & 0x01)? "VCT   " : "      ", stdout);
+	fputs((*(VBuf + 7) & 0x20)? "[D]  " : "     ", stdout);
+	fputs((*(VBuf + 7) & 0x02)? "[R]  " : "     ", stdout);
+	fputs((*(VBuf + 8) & 0x10)? "[G]    " : "       ", stdout);
+	fputs((*(VBuf + 8) & 0x01)? "FIX  " : "     ", stdout);
+	fputs((*(VBuf + 9) & 0x20)? "SCI   " : "      ", stdout);
+	fputs((*(VBuf + 10) & 0x40)? "Math   " : "       ", stdout);
+	fputs((*(VBuf + 10) & 0x08)? "v  " : "   ", stdout);
+	fputs((*(VBuf + 11) & 0x10)? "^   " : "    ", stdout);
+	fputs((*(VBuf + 11) & 0x10)? "Disp\n" : "    \n", stdout);
+
+	// dot matrix area
+	for( y = 1; y < LCD_HEIGHT; ++y ) {
 		for( x = 0; x < LCD_WIDTH; ++x ) {
 			putchar((*(VBuf + y * LCD_WIDTH + x) == 1)? 'o' : ' ');
 		}
 		putchar('\n');
 	}
 }
-
 
 
 int main(void) {
