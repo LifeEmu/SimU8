@@ -1366,7 +1366,7 @@ CORE_STATUS coreStep(void) {
 				CycleCount = 1;
 				break;
 			}
-			if( (CodeWord & 0x01f0) == 0x0010 ) {
+			if( (CodeWord & 0x0f10) == 0x0100 ) {
 				// MOV SP, ERm
 				SP = GR.ers[regNumSrc >> 1];
 				CycleCount = 1;
