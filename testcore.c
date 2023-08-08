@@ -120,7 +120,7 @@ int main(void) {
 
 			case CORE_UNIMPLEMENTED:
 				puts("An unimplemented instruction has been skipped.");
-				printf("Address = %01X%04Xh.\n", CSR, PC - 2);
+				printf("Address = %01X%04Xh.\n", CSR, (PC - 2) & 0x0ffff);
 				break;
 
 			default:
@@ -202,5 +202,6 @@ int main(void) {
 exit:
 	memoryFree();
 	freeVBuf(VBuf);
+	puts("Successifully exited without crashing.");
 	return 0;
 }
