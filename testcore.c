@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <ctype.h>
 #include <conio.h>
 
@@ -7,14 +8,15 @@
 #include "inc/core.h"
 #include "inc/lcd.h"
 
-#define ROM_FILE_NAME "rom.bin"
-
+#define ROM_FILE_NAME "out.bin"
+#define DARK_PIXEL 'o'
+#define LIGHT_PIXEL ' '
 
 unsigned char* VBuf = NULL;
 
 
 unsigned char* createVBuf(int x, int y) {
-	return (unsigned char*)malloc(x * y / 8);
+	return (unsigned char*)malloc(x * y);
 }
 
 void freeVBuf(unsigned char* buf) {
@@ -23,47 +25,47 @@ void freeVBuf(unsigned char* buf) {
 
 
 void setPix(int x, int y, int c) {
-	*(VBuf + y * LCD_WIDTH + x) = (c? 1 : 0);
+	*(VBuf + y * LCD_WIDTH + x) = (c? DARK_PIXEL : LIGHT_PIXEL);
 }
 
 void updateDisp() {
-	int x, y;
+	int y;
+	char line[LCD_WIDTH + 1];
+	line[LCD_WIDTH] = '\0';
 	// status bar area
 /*
  * 123456781234567812345678123456781234567812345678123456781234567812345678123456781234567812345678
  * [S] [A]   M   STO  RCL    STAT  CMPLX  MAT  VCT   [D]  [R]  [G]    FIX  SCI   Math   v  ^   Disp
  */
-	fputs((*VBuf & 0x10)? "\n[S] " : "\n    ", stdout);
-	fputs((*VBuf & 0x04)? "[A]   " : "      ", stdout);
-	fputs((*(VBuf + 1) & 0x10)? "M   " : "    ", stdout);
-	fputs((*(VBuf + 1) & 0x02)? "STO  " : "     ", stdout);
-	fputs((*(VBuf + 2) & 0x40)? "RCL    " : "       ", stdout);
-	fputs((*(VBuf + 3) & 0x40)? "STAT  " : "      ", stdout);
-	fputs((*(VBuf + 4) & 0x80)? "CMPLX  " : "       ", stdout);
-	fputs((*(VBuf + 5) & 0x40)? "MAT  " : "     ", stdout);
-	fputs((*(VBuf + 5) & 0x01)? "VCT   " : "      ", stdout);
-	fputs((*(VBuf + 7) & 0x20)? "[D]  " : "     ", stdout);
-	fputs((*(VBuf + 7) & 0x02)? "[R]  " : "     ", stdout);
-	fputs((*(VBuf + 8) & 0x10)? "[G]    " : "       ", stdout);
-	fputs((*(VBuf + 8) & 0x01)? "FIX  " : "     ", stdout);
-	fputs((*(VBuf + 9) & 0x20)? "SCI   " : "      ", stdout);
-	fputs((*(VBuf + 10) & 0x40)? "Math   " : "       ", stdout);
-	fputs((*(VBuf + 10) & 0x08)? "v  " : "   ", stdout);
-	fputs((*(VBuf + 11) & 0x10)? "^   " : "    ", stdout);
-	fputs((*(VBuf + 11) & 0x10)? "Disp\n" : "    \n", stdout);
+	fputs(*(VBuf + 3) == DARK_PIXEL? "\n[S] " : "\n    ", stdout);
+	fputs(*(VBuf + 5) == DARK_PIXEL? "[A]   " : "      ", stdout);
+	fputs(*(VBuf + 8*1 + 3) == DARK_PIXEL? "M   " : "    ", stdout);
+	fputs(*(VBuf + 8*1 + 6) == DARK_PIXEL? "STO  " : "     ", stdout);
+	fputs(*(VBuf + 8*2 + 1) == DARK_PIXEL? "RCL    " : "       ", stdout);
+	fputs(*(VBuf + 8*3 + 1) == DARK_PIXEL? "STAT  " : "      ", stdout);
+	fputs(*(VBuf + 8*4 + 0) == DARK_PIXEL? "CMPLX  " : "       ", stdout);
+	fputs(*(VBuf + 8*5 + 1) == DARK_PIXEL? "MAT  " : "     ", stdout);
+	fputs(*(VBuf + 8*5 + 7) == DARK_PIXEL? "VCT   " : "      ", stdout);
+	fputs(*(VBuf + 8*7 + 2) == DARK_PIXEL? "[D]  " : "     ", stdout);
+	fputs(*(VBuf + 8*7 + 6) == DARK_PIXEL? "[R]  " : "     ", stdout);
+	fputs(*(VBuf + 8*8 + 3) == DARK_PIXEL? "[G]    " : "       ", stdout);
+	fputs(*(VBuf + 8*8 + 7) == DARK_PIXEL? "FIX  " : "     ", stdout);
+	fputs(*(VBuf + 8*9 + 2) == DARK_PIXEL? "SCI   " : "      ", stdout);
+	fputs(*(VBuf + 8*10 + 1) == DARK_PIXEL? "Math   " : "       ", stdout);
+	fputs(*(VBuf + 8*10 + 4) == DARK_PIXEL? "v  " : "   ", stdout);
+	fputs(*(VBuf + 8*11 + 0) == DARK_PIXEL? "^   " : "    ", stdout);
+	fputs(*(VBuf + 8*11 + 3) == DARK_PIXEL? "Disp\n" : "    \n", stdout);
 
 	// dot matrix area
 	for( y = 1; y < LCD_HEIGHT; ++y ) {
-		for( x = 0; x < LCD_WIDTH; ++x ) {
-			putchar((*(VBuf + y * LCD_WIDTH + x) == 1)? 'o' : ' ');
-		}
-		putchar('\n');
+		memcpy(line, VBuf + y * LCD_WIDTH, LCD_WIDTH);
+		puts(line);
 	}
 }
 
 
 int main(void) {
-	int key, isSingleStep = 1, hasBreakpoint = 0;
+	int key, isSingleStep = 1, hasBreakpoint = 0, isCommand = 0;
 	EA_t breakpoint;
 
 	switch( memoryInit(ROM_FILE_NAME, NULL) ) {
@@ -107,40 +109,43 @@ int main(void) {
 	// main loop
 	do {
 		while( !_kbhit() ) {
-			switch( coreStep() ) {
-			case CORE_ILLEGAL_INSTRUCTION:
-				printf("\n!!! Illegal Instruction !!!\n");
-				coreDispRegs();
-				goto exit;
+			if( !isCommand ) {
+				switch( coreStep() ) {
+				case CORE_ILLEGAL_INSTRUCTION:
+					printf("\n!!! Illegal Instruction !!!\n");
+					coreDispRegs();
+					goto exit;
 
-			case CORE_READ_ONLY:
-				puts("A write to read-only region has happened.");
-				printf("CSR:PC = %01X:%04Xh.\n", CSR, PC);
-				break;
+				case CORE_READ_ONLY:
+					puts("A write to read-only region has happened.");
+					printf("CSR:PC = %01X:%04Xh.\n", CSR, PC);
+					break;
 
-			case CORE_UNIMPLEMENTED:
-				puts("An unimplemented instruction has been skipped.");
-				printf("Address = %01X%04Xh.\n", CSR, (PC - 2) & 0x0ffff);
-				break;
+				case CORE_UNIMPLEMENTED:
+					puts("An unimplemented instruction has been skipped.");
+					printf("Address = %01X%04Xh.\n", CSR, (PC - 2) & 0x0ffff);
+					break;
 
-			default:
-				break;
-			}
+				default:
+					break;
+				}
 
-			// breakpoint
-			if( hasBreakpoint && PC == breakpoint ) {
-				isSingleStep = 1;
-				coreDispRegs();
-				printf("Breakpoint %04Xh has been hit!", PC);
-				break;
-			}
+				// breakpoint
+				if( hasBreakpoint && PC == breakpoint ) {
+					isSingleStep = 1;
+					coreDispRegs();
+					printf("Breakpoint %04Xh has been hit!", PC);
+					break;
+				}
 
-			if( isSingleStep ) {
-				coreDispRegs();
-				break;
+				if( isSingleStep ) {
+					coreDispRegs();
+					break;
+				}
 			}
 		}
 		key = tolower(_getch());	// get char and echo
+		isCommand = 1;
 		switch( key ) {
 		case 'r':
 			// show registers
@@ -164,6 +169,7 @@ int main(void) {
 			// continue
 			puts("Execution resumed (p)\nType 's' to pause and step.");
 			isSingleStep = 0;
+			isCommand = 0;
 			break;
 
 		case 'b':
@@ -195,11 +201,13 @@ int main(void) {
 			break;
 
 		default:
+			isCommand = 0;
 			break;
 		}
 	} while( key != 'q' );
 
 exit:
+	coreReset();		// make sure core is not running..?
 	memoryFree();
 	freeVBuf(VBuf);
 	puts("Successifully exited without crashing.");
