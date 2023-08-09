@@ -1240,6 +1240,7 @@ CORE_STATUS coreStep(void) {
 				}
 				// SB Dbitadr
 				memoryGetCodeWord(CSR, PC);
+				PC = (PC + 2) & 0xfffe;
 				memoryGetData(GET_DATA_SEG, (EA_t)CodeWord, 1);
 				tempData.byte = _ALU(DataRaw.byte, src, _ALU_SB);
 				memorySetData(GET_DATA_SEG, CodeWord, 1, tempData);
@@ -1260,6 +1261,7 @@ CORE_STATUS coreStep(void) {
 				}
 				// TB Dbitadr
 				memoryGetCodeWord(CSR, PC);
+				PC = (PC + 2) & 0xfffe;
 				memoryGetData(GET_DATA_SEG, (EA_t)CodeWord, 1);
 				_ALU(DataRaw.byte, src, _ALU_TB);
 				CycleCount = 2 + ROMWinAccessCount + EAIncDelay;
@@ -1279,6 +1281,7 @@ CORE_STATUS coreStep(void) {
 				}
 				// RB Dbitadr
 				memoryGetCodeWord(CSR, PC);
+				PC = (PC + 2) & 0xfffe;
 				memoryGetData(GET_DATA_SEG, (EA_t)CodeWord, 1);
 				tempData.byte = _ALU(DataRaw.byte, src, _ALU_RB);
 				memorySetData(GET_DATA_SEG, CodeWord, 1, tempData);
