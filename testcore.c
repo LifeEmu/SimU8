@@ -234,6 +234,8 @@ int main(void) {
 			// display
 			puts("Display the LCD\n----------------");
 			renderVRAM();
+			puts("Display the buffer\n----------------");
+			renderBuffer(DataMemory - ROM_WINDOW_SIZE + 0x87d0);
 			puts("----------------");
 			break;
 
