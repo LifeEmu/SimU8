@@ -8,7 +8,7 @@
 #include "inc/core.h"
 #include "inc/lcd.h"
 
-#define ROM_FILE_NAME "out.bin"
+#define ROM_FILE_NAME "rom.bin"
 #define DARK_PIXEL 'o'
 #define LIGHT_PIXEL ' '
 
@@ -67,6 +67,7 @@ void updateDisp() {
 int main(void) {
 	int key, isSingleStep = 1, hasBreakpoint = 0, isCommand = 0;
 	EA_t breakpoint;
+//	uint16_t checksum = 0x0000, index, count;
 
 	switch( memoryInit(ROM_FILE_NAME, NULL) ) {
 		case MEMORY_ALLOCATION_FAILED:
@@ -80,6 +81,42 @@ int main(void) {
 		default:	// GCC told me to handle all the cases so here we go
 			break;
 	}
+
+
+/*
+	// calculate checksum
+	// code segment 0
+	count = 0; index = 0;
+	do {
+//		memoryGetData(8, index++, 1);
+//		checksum -= DataRaw.byte;
+		checksum -= *(uint8_t*)(CodeMemory + index++);
+	} while( --count );
+	printf("\nCount = %04X, index = %04X.\n", count, index);
+
+	// code segment 1
+	count = 0xfffc; index = 0;
+	do {
+//		memoryGetData(1, index++, 1);
+//		checksum -= DataRaw.byte;
+		checksum -= *(uint8_t*)(CodeMemory + 0x10000 + index++);
+	} while( --count );
+
+	printf("Count = %04X, index = %04X.\nChecksum = %04X.\n", count, index, checksum);
+*/
+
+/*
+	// find out where the return value of segment 0 is bad
+	count = 0; index = 0;
+	do {
+		memoryGetData(8, index, 1);
+		if( DataRaw.byte != *(uint8_t*)(CodeMemory + index) ) {
+			printf("Data from address %04Xh: memoryGetData: %02Xh | Direct access: %02Xh.\n", index, DataRaw.byte, *(uint8_t*)(CodeMemory + index));
+			break;
+		}
+		++index;
+	} while( --count );
+*/
 
 
 	if( (VBuf = createVBuf(LCD_WIDTH, LCD_HEIGHT)) == NULL ) {
