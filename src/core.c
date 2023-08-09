@@ -1414,7 +1414,7 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// MOV ECSR, Rm
-			*_getCurrECSR() = GR.rs[regNumSrc];
+			*_getCurrECSR() = GR.rs[regNumSrc] & 0x0f;
 			CycleCount = 2;
 			break;
 
@@ -1974,7 +1974,7 @@ CORE_STATUS coreStep(void) {
 					if( regNumDest & 0x08 ) {
 						// LR
 						LR = _popValue(2).word;
-						LCSR = _popValue(1).byte;
+						LCSR = _popValue(1).byte & 0x0f;
 						CycleCount += 4;
 					}
 					if( regNumDest & 0x04 ) {
@@ -1985,7 +1985,7 @@ CORE_STATUS coreStep(void) {
 					if( regNumDest & 0x02 ) {
 						// PC
 						PC = _popValue(2).word & 0xfffe;
-						CSR = _popValue(1).byte;
+						CSR = _popValue(1).byte & 0x0f;
 						CycleCount += 7;
 					}
 					if( CycleCount )
