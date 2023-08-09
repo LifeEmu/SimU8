@@ -70,6 +70,7 @@ int main(void) {
 	SR_t jumpCSR, dumpDSR;
 	// `hexBytes` contains hexadecimal representation of bytes
 	char hexBytes[(2+1)*8 +1], charBytes[8 +1];
+	hexBytes[24] = '\0'; charBytes[8] = '\0';
 //	uint16_t checksum = 0x0000, index, count;
 
 	switch( memoryInit(ROM_FILE_NAME, NULL) ) {
