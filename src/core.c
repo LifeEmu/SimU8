@@ -85,13 +85,11 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 			retVal = dest + src;
 			PSW.field.C = (retVal & 0x10000)? 1 : 0;
 			retVal &= 0xffff;
-//			printf("\n_ALU_ADD_W | result = %04Xh\n", retVal);
 			PSW.field.Z = IS_ZERO(retVal);
 			PSW.field.S = SIGN16(retVal);
 			// reference: Z80 user manual
 			PSW.field.OV = (((dest & 0x7fff) + (src & 0x7fff)) >> 15) ^ PSW.field.C;
 			PSW.field.HC = (((dest & 0x0fff) + (src & 0x0fff)) & 0x1000)? 1 : 0;
-//			printf("\t\tPSW = %02X\n", PSW.raw);
 			break;
 
 		case _ALU_ADDC:
@@ -101,7 +99,7 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 			retVal = dest + src + PSW.field.C;
 			PSW.field.C = (retVal & 0x100)? 1 : 0;
 			retVal &= 0xff;
-			PSW.field.Z = IS_ZERO(retVal);
+			PSW.field.Z = PSW.field.Z & IS_ZERO(retVal);
 			PSW.field.S = SIGN8(retVal);
 			// reference: Z80 user manual
 			PSW.field.OV = (((dest & 0x7f) + (src & 0x7f) + PSW.field.C) >> 7) ^ PSW.field.C;
@@ -170,7 +168,7 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 			retVal = dest - src - PSW.field.C;
 			PSW.field.C = (retVal & 0x100)? 1 : 0;
 			retVal &= 0xff;
-			PSW.field.Z = IS_ZERO(retVal);
+			PSW.field.Z = PSW.field.Z & IS_ZERO(retVal);
 			PSW.field.S = SIGN8(retVal);
 			// reference: Z80 user manual
 			PSW.field.OV = (((dest & 0x7f) - (src & 0x7f) - PSW.field.C) >> 7) ^ PSW.field.C;
@@ -445,7 +443,7 @@ CORE_STATUS coreDispRegs(void) {
 	printf("\tDSR = %02Xh\n", DSR);
 	printf("\tEA = %04Xh\n", EA);
 	printf("\tPSW = %02Xh\n", PSW.raw);
-	printf("\t\tC Z S V I H MIE\n\t\t%1d %1d %1d %1d %1d %1d  %1d\n", PSW.field.C, PSW.field.Z, PSW.field.S, PSW.field.OV, PSW.field.MIE, PSW.field.HC, PSW.field.ELevel);
+	printf("\t\tC Z S V I H ELV\n\t\t%1d %1d %1d %1d %1d %1d  %1d\n", PSW.field.C, PSW.field.Z, PSW.field.S, PSW.field.OV, PSW.field.MIE, PSW.field.HC, PSW.field.ELevel);
 
 	printf("\n\tLCSR:LR = %01X:%04Xh\n", LCSR, LR);
 	printf("\tECSR1:ELR1 = %01X:%04Xh\n", ECSR1, ELR1);
