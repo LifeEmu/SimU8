@@ -45,7 +45,7 @@ void updateDisp() {
 	fputs(*(VBuf + 8*3 + 1) == DARK_PIXEL? "STAT  " : "      ", stdout);
 	fputs(*(VBuf + 8*4 + 0) == DARK_PIXEL? "CMPLX  " : "       ", stdout);
 	fputs(*(VBuf + 8*5 + 1) == DARK_PIXEL? "MAT  " : "     ", stdout);
-	fputs(*(VBuf + 8*5 + 7) == DARK_PIXEL? "VCT   " : "      ", stdout);
+	fputs(*(VBuf + 8*5 + 6) == DARK_PIXEL? "VCT   " : "      ", stdout);
 	fputs(*(VBuf + 8*7 + 2) == DARK_PIXEL? "[D]  " : "     ", stdout);
 	fputs(*(VBuf + 8*7 + 6) == DARK_PIXEL? "[R]  " : "     ", stdout);
 	fputs(*(VBuf + 8*8 + 3) == DARK_PIXEL? "[G]    " : "       ", stdout);
