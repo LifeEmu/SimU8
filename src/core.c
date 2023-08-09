@@ -869,9 +869,9 @@ CORE_STATUS coreStep(void) {
 						// L Rn, [adr]
 						// fetch source address
 						memoryGetCodeWord(CSR, PC);
+						PC = (PC + 2) & 0xfffe;
 						src = CodeWord;
 						CycleCount += EAIncDelay;
-						PC = (PC + 2) & 0xfffe;
 						break;
 
 					case 0x9030:
@@ -912,9 +912,9 @@ CORE_STATUS coreStep(void) {
 						// ST Rn, [adr]
 						// fetch destination address
 						memoryGetCodeWord(CSR, PC);
+						PC = (PC + 2) & 0xfffe;
 						dest = CodeWord;
 						CycleCount += EAIncDelay;
-						PC = (PC + 2) & 0xfffe;
 						break;
 
 					case 0x9031:
@@ -951,9 +951,9 @@ CORE_STATUS coreStep(void) {
 						// L ERn, [adr]
 						// fetch source address
 						memoryGetCodeWord(CSR, PC);
+						PC = (PC + 2) & 0xfffe;
 						src = CodeWord;
 						CycleCount += EAIncDelay;
-						PC = (PC + 2) & 0xfffe;
 						break;
 
 					case 0x9032:
@@ -994,9 +994,9 @@ CORE_STATUS coreStep(void) {
 						// ST ERn, [adr]
 						// fetch destination address
 						memoryGetCodeWord(CSR, PC);
+						PC = (PC + 2) & 0xfffe;
 						dest = CodeWord;
 						CycleCount += EAIncDelay;
-						PC = (PC + 2) & 0xfffe;
 						break;
 
 					case 0x9033:
@@ -1129,6 +1129,7 @@ CORE_STATUS coreStep(void) {
 			// L Rn, d16[ERm]
 			src = GR.ers[regNumSrc >> 1];
 			memoryGetCodeWord(CSR, PC);
+			PC = (PC + 2) & 0xfffe;
 			src = (src + CodeWord) & 0xffff;
 			memoryGetData(GET_DATA_SEG, src, 1);
 			GR.rs[regNumDest] = DataRaw.byte;
@@ -1143,6 +1144,7 @@ CORE_STATUS coreStep(void) {
 			// ST Rn, d16[ERm]
 			dest = GR.ers[regNumSrc >> 1];
 			memoryGetCodeWord(CSR, PC);
+			PC = (PC + 2) & 0xfffe;
 			dest = (dest + CodeWord) & 0xffff;
 			tempData.byte = GR.rs[regNumDest];
 			memorySetData(GET_DATA_SEG, dest, 1, tempData);
@@ -1347,6 +1349,7 @@ CORE_STATUS coreStep(void) {
 			// L ERn, d16[ERm]
 			src = GR.ers[regNumSrc >> 1];
 			memoryGetCodeWord(CSR, PC);
+			PC = (PC + 2) & 0xfffe;
 			src = (src + CodeWord) & 0xffff;
 			memoryGetData(GET_DATA_SEG, src, 2);
 			GR.ers[regNumDest >> 1] = DataRaw.word;
@@ -1361,6 +1364,7 @@ CORE_STATUS coreStep(void) {
 			// ST ERn, d16[ERm]
 			dest = GR.ers[regNumSrc >> 1];
 			memoryGetCodeWord(CSR, PC);
+			PC = (PC + 2) & 0xfffe;
 			dest = (dest + CodeWord) & 0xffff;
 			tempData.word = GR.ers[regNumDest >> 1];
 			memorySetData(GET_DATA_SEG, dest, 2, tempData);
