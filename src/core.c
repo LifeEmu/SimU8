@@ -85,13 +85,11 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 			retVal = dest + src;
 			PSW.field.C = (retVal & 0x10000)? 1 : 0;
 			retVal &= 0xffff;
-//			printf("\n_ALU_ADD_W | result = %04Xh\n", retVal);
 			PSW.field.Z = IS_ZERO(retVal);
 			PSW.field.S = SIGN16(retVal);
 			// reference: Z80 user manual
 			PSW.field.OV = (((dest & 0x7fff) + (src & 0x7fff)) >> 15) ^ PSW.field.C;
 			PSW.field.HC = (((dest & 0x0fff) + (src & 0x0fff)) & 0x1000)? 1 : 0;
-//			printf("\t\tPSW = %02X\n", PSW.raw);
 			break;
 
 		case _ALU_ADDC:
@@ -101,7 +99,7 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 			retVal = dest + src + PSW.field.C;
 			PSW.field.C = (retVal & 0x100)? 1 : 0;
 			retVal &= 0xff;
-			PSW.field.Z = IS_ZERO(retVal);
+			PSW.field.Z = PSW.field.Z & IS_ZERO(retVal);
 			PSW.field.S = SIGN8(retVal);
 			// reference: Z80 user manual
 			PSW.field.OV = (((dest & 0x7f) + (src & 0x7f) + PSW.field.C) >> 7) ^ PSW.field.C;
@@ -170,7 +168,7 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 			retVal = dest - src - PSW.field.C;
 			PSW.field.C = (retVal & 0x100)? 1 : 0;
 			retVal &= 0xff;
-			PSW.field.Z = IS_ZERO(retVal);
+			PSW.field.Z = PSW.field.Z & IS_ZERO(retVal);
 			PSW.field.S = SIGN8(retVal);
 			// reference: Z80 user manual
 			PSW.field.OV = (((dest & 0x7f) - (src & 0x7f) - PSW.field.C) >> 7) ^ PSW.field.C;
@@ -186,7 +184,7 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 
 		case _ALU_SRL:
 			// logical shift right
-			retVal = (dest << 1) >> ((src & 0x07) + 1);	// leave space for carry flag
+			retVal = (dest << 1) >> (src & 0x07);	// leave space for carry flag
 			PSW.field.C = retVal & 0x01;
 			retVal = (retVal >> 1) & 0xff;
 			break;
@@ -441,11 +439,18 @@ CORE_STATUS coreDispRegs(void) {
 
 	printf("\tCSR:PC = %01X:%04Xh\n", CSR, PC);
 	printf("\t\tCode words at CSR:PC: %04X %04X\n", *(uint16_t*)(CodeMemory + (CSR << 16) + PC), *(uint16_t*)(CodeMemory + (CSR << 16) + PC + 2));
+
 	printf("\tSP = %04Xh\n", SP);
+	for( i = 0; i < 16; i += 4 ) {
+		memoryGetData(0, SP + i, 4);
+		printf("\t\t[%04Xh].w = %08Xh\n", (SP + i) & 0xffff, DataRaw.dword);
+	}
+	putchar('\n');
+
 	printf("\tDSR = %02Xh\n", DSR);
 	printf("\tEA = %04Xh\n", EA);
 	printf("\tPSW = %02Xh\n", PSW.raw);
-	printf("\t\tC Z S V I H MIE\n\t\t%1d %1d %1d %1d %1d %1d  %1d\n", PSW.field.C, PSW.field.Z, PSW.field.S, PSW.field.OV, PSW.field.MIE, PSW.field.HC, PSW.field.ELevel);
+	printf("\t\tC Z S V I H ELV\n\t\t%1d %1d %1d %1d %1d %1d  %1d\n", PSW.field.C, PSW.field.Z, PSW.field.S, PSW.field.OV, PSW.field.MIE, PSW.field.HC, PSW.field.ELevel);
 
 	printf("\n\tLCSR:LR = %01X:%04Xh\n", LCSR, LR);
 	printf("\tECSR1:ELR1 = %01X:%04Xh\n", ECSR1, ELR1);
@@ -1416,7 +1421,7 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// MOV ECSR, Rm
-			*_getCurrECSR() = GR.rs[regNumSrc];
+			*_getCurrECSR() = GR.rs[regNumSrc] & 0x0f;
 			CycleCount = 2;
 			break;
 
@@ -1976,7 +1981,7 @@ CORE_STATUS coreStep(void) {
 					if( regNumDest & 0x08 ) {
 						// LR
 						LR = _popValue(2).word;
-						LCSR = _popValue(1).byte;
+						LCSR = _popValue(1).byte & 0x0f;
 						CycleCount += 4;
 					}
 					if( regNumDest & 0x04 ) {
@@ -1987,7 +1992,7 @@ CORE_STATUS coreStep(void) {
 					if( regNumDest & 0x02 ) {
 						// PC
 						PC = _popValue(2).word & 0xfffe;
-						CSR = _popValue(1).byte;
+						CSR = _popValue(1).byte & 0x0f;
 						CycleCount += 7;
 					}
 					if( CycleCount )

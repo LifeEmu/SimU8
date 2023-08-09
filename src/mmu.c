@@ -147,11 +147,10 @@ MEMORY_STATUS memoryGetData(SR_t segment, EA_t offset, size_t size) {
 
 	// mask segment so it resides in mirrow range
 	if( segment > DATA_MIRROW_MASK ) {
-		segment &= DATA_MIRROW_MASK;
 		retVal = MEMORY_MIRROWED_BANK;
 	}
 
-	if( segment >= DATA_PAGE_COUNT )
+	if( (segment & DATA_MIRROW_MASK) >= DATA_PAGE_COUNT )
 		return MEMORY_UNMAPPED;
 
 	offset += size;
@@ -162,13 +161,14 @@ MEMORY_STATUS memoryGetData(SR_t segment, EA_t offset, size_t size) {
 			++ROMWinAccessCount;
 			retVal = MEMORY_ROM_WINDOW;
 		}
+
 		if( (segment == 0) && (offset >= ROM_WINDOW_SIZE) ) {
 			// data region of segment 0
 			DataRaw.byte |= *(uint8_t*)(DataMemory + offset - ROM_WINDOW_SIZE);
 		}
 		else {
 			// code memory
-			DataRaw.byte |= *(uint8_t*)(CodeMemory + (segment << 16) + offset);
+			DataRaw.byte |= *(uint8_t*)(CodeMemory + ((segment & DATA_MIRROW_MASK) << 16) + offset);
 		}
 		if( --size == 0 )
 			break;
