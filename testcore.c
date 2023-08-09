@@ -65,8 +65,11 @@ void updateDisp() {
 
 
 int main(void) {
-	int key, isSingleStep = 1, hasBreakpoint = 0, isCommand = 0;
-	EA_t breakpoint;
+	int key, isSingleStep = 1, hasBreakpoint = 0, isCommand = 0, line, offset;
+	EA_t breakpoint, jumpPC, dumpAR;
+	SR_t jumpCSR, dumpDSR;
+	// `hexBytes` contains hexadecimal representation of bytes
+	char hexBytes[(2+1)*8 +1], charBytes[8 +1];
 //	uint16_t checksum = 0x0000, index, count;
 
 	switch( memoryInit(ROM_FILE_NAME, NULL) ) {
@@ -149,9 +152,12 @@ int main(void) {
 			if( !isCommand ) {
 				switch( coreStep() ) {
 				case CORE_ILLEGAL_INSTRUCTION:
-					printf("\n!!! Illegal Instruction !!!\n");
 					coreDispRegs();
-					goto exit;
+					isSingleStep = 1;
+					printf("\n!!! Illegal Instruction !!!\n");
+					printf("CSR:PC = %01X:%04Xh.\n", CSR, PC);
+					puts("Single step mode is activated. Press 'c' to reset core.");
+					break;
 
 				case CORE_READ_ONLY:
 					puts("A write to read-only region has happened.");
@@ -186,32 +192,32 @@ int main(void) {
 		switch( key ) {
 		case 'r':
 			// show registers
-			puts("Show registers (r)");
 			coreDispRegs();
+			puts("\nShow registers (r)");
 			break;
 
 		case 'a':
 			// show addresses
-			puts("Show addresses (a)");
+			puts("\nShow addresses (a)");
 			printf("`CodeMemory` = %p\n`DataMemory` = %p.\n");
 			break;
 
 		case 's':
 			// step
-			puts("Single step mode (s)\nResume execution by typing 'c'.");
+			puts("\nSingle step mode (s)\nResume execution by typing 'c'.");
 			isSingleStep = 1;
 			break;
 
 		case 'p':
 			// continue
-			puts("Execution resumed (p)\nType 's' to pause and step.");
+			puts("\nExecution resumed (p)\nType 's' to pause and step.");
 			isSingleStep = 0;
 			isCommand = 0;
 			break;
 
 		case 'b':
 			// breakpoint
-			puts("Set breakpoint (b)\nSingle step mode will be enabled if PC matches the breakpoint\nInput a hexadecimal number for breakpoint:");
+			puts("\nSet breakpoint... (b)\nSingle step mode will be enabled if PC matches the breakpoint\nInput a hexadecimal number for breakpoint:");
 			scanf("%x", &breakpoint);
 			printf("Breakpoint set to %04Xh.\n", breakpoint);
 			hasBreakpoint = 1;
@@ -219,24 +225,49 @@ int main(void) {
 
 		case 'n':
 			// disable breakpoint
-			puts("Disable breakpoint (n)\nBreakpoint has been disabled.");
+			puts("\nDisable breakpoint (n)\nBreakpoint has been disabled.");
 			hasBreakpoint = 0;
 			break;
 
 		case 'c':
 			// reset
-			puts("Reset core (c)\nCore is reset.\nSingle step mode will be enabled.");
+			puts("\nReset core (c)\nCore is reset.\nSingle step mode will be enabled.");
 			coreReset();
 			isSingleStep = 1;
 			break;
 
 		case 'd':
 			// display
-			puts("Display the LCD\n----------------");
+			puts("\nDisplay the LCD (d)\n----------------");
 			renderVRAM();
 			puts("Display the buffer\n----------------");
 			renderBuffer(DataMemory - ROM_WINDOW_SIZE + 0x87d0);
 			puts("----------------");
+			break;
+
+		case 'j':
+			// jump
+			puts("\nJump to... (j)\nInput a new value for CSR:PC (DON'T include the colon):");
+			scanf("%01x%04x", &jumpCSR, &jumpPC);
+			PC = jumpPC & 0xfffe; CSR = jumpCSR & 0x0f;
+			printf("CSR:PC set tp %01X:%04Xh.\n", CSR, PC);
+			break;
+
+		case 'm':
+			// memory
+			puts("\nShow memory... (m)\nInput an address for data memory (6 hexadecimal digits):");
+			scanf("%02X%04X", &dumpDSR, &dumpAR);
+			puts("======== Memory dump ========");
+			for( line = 0; line < 8; ++line ) {
+				for( offset = 0; offset < 8; ++offset ) {
+					memoryGetData(dumpDSR, dumpAR, 1);
+					dumpAR = (dumpAR + 1) & 0xffff;
+					sprintf(hexBytes + 3*offset, "%02X ", DataRaw.byte);
+					charBytes[offset] = (DataRaw.byte >= 0x20 && DataRaw.byte <= 0x7f)? DataRaw.byte : '.';
+				}
+				printf("%02X%04X: %s|%s\n", dumpDSR, (dumpAR - 8) & 0xffff, hexBytes, charBytes);
+			}
+			puts("========     End     ========");
 			break;
 
 		default:
@@ -245,7 +276,6 @@ int main(void) {
 		}
 	} while( key != 'q' );
 
-exit:
 	coreReset();		// make sure core is not running..?
 	memoryFree();
 	freeVBuf(VBuf);
