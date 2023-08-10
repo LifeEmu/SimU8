@@ -161,12 +161,12 @@ int main(void) {
 					break;
 
 				case CORE_READ_ONLY:
-					puts("A write to read-only region has happened.");
+					puts("\nA write to read-only region has happened.");
 					printf("CSR:PC = %01X:%04Xh.\n", CSR, PC);
 					break;
 
 				case CORE_UNIMPLEMENTED:
-					puts("An unimplemented instruction has been skipped.");
+					puts("\nAn unimplemented instruction has been skipped.");
 					printf("Address = %01X%04Xh.\n", CSR, (PC - 2) & 0x0ffff);
 					break;
 
@@ -178,7 +178,7 @@ int main(void) {
 				if( hasBreakpoint && PC == breakpoint ) {
 					isSingleStep = 1;
 					coreDispRegs();
-					printf("Breakpoint %04Xh has been hit!", PC);
+					printf("\nBreakpoint %04Xh has been hit!\n", PC);
 					break;
 				}
 
