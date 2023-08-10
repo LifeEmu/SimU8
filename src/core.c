@@ -438,12 +438,15 @@ CORE_STATUS coreDispRegs(void) {
 	puts("\n Control registers:");
 
 	printf("\tCSR:PC = %01X:%04Xh\n", CSR, PC);
-	printf("\t\tCode words at CSR:PC: %04X %04X\n", *(uint16_t*)(CodeMemory + (CSR << 16) + PC), *(uint16_t*)(CodeMemory + (CSR << 16) + PC + 2));
+	memoryGetCodeWord(CSR, PC);
+	printf("\t\tCode words at CSR:PC: %04X", CodeWord);
+	memoryGetCodeWord(CSR, (PC + 2) & 0xfffe);
+	printf(" %04X\n", CodeWord);
 
 	printf("\tSP = %04Xh\n", SP);
 	for( i = 0; i < 16; i += 4 ) {
 		memoryGetData(0, SP + i, 4);
-		printf("\t\t[%04Xh].w = %08Xh\n", (SP + i) & 0xffff, DataRaw.dword);
+		printf("\t\t[%04Xh].d = %08Xh\n", (SP + i) & 0xffff, DataRaw.dword);
 	}
 	putchar('\n');
 
