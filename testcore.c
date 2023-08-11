@@ -66,8 +66,8 @@ void updateDisp() {
 
 int main(void) {
 	int key, isSingleStep = 1, hasBreakpoint = 0, isCommand = 0, line, offset;
-	EA_t breakpoint, jumpPC, dumpAR;
-	SR_t jumpCSR, dumpDSR;
+	EA_t breakPC, jumpPC, dumpAR;
+	SR_t breakCSR, jumpCSR, dumpDSR;
 	// `hexBytes` contains hexadecimal representation of bytes
 	char hexBytes[(2+1)*8 +1], charBytes[8 +1];
 	hexBytes[24] = '\0'; charBytes[8] = '\0';
@@ -175,10 +175,10 @@ int main(void) {
 				}
 
 				// breakpoint
-				if( hasBreakpoint && PC == breakpoint ) {
+				if( hasBreakpoint && (CSR == breakCSR) && (PC == breakPC)) {
 					isSingleStep = 1;
 					coreDispRegs();
-					printf("\nBreakpoint %04Xh has been hit!\n", PC);
+					printf("\nBreakpoint %01X:%04Xh has been hit!\n", CSR, PC);
 					break;
 				}
 
@@ -218,9 +218,10 @@ int main(void) {
 
 		case 'b':
 			// breakpoint
-			puts("\nSet breakpoint... (b)\nSingle step mode will be enabled if PC matches the breakpoint\nInput a hexadecimal number for breakpoint:");
-			scanf("%x", &breakpoint);
-			printf("Breakpoint set to %04Xh.\n", breakpoint);
+			puts("\nSet breakpoint... (b)\nSingle step mode will be enabled if CSR:PC matches the breakpoint\nInput CSR:PC for breakpoint(DON'T include the colon):");
+			scanf("%01x%04x", &breakCSR, &breakPC);
+			breakCSR &= 0x0f;
+			printf("Breakpoint set to %01X:%04Xh.\n", breakCSR, breakPC);
 			hasBreakpoint = 1;
 			break;
 
@@ -251,7 +252,7 @@ int main(void) {
 			puts("\nJump to... (j)\nInput a new value for CSR:PC (DON'T include the colon):");
 			scanf("%01x%04x", &jumpCSR, &jumpPC);
 			PC = jumpPC & 0xfffe; CSR = jumpCSR & 0x0f;
-			printf("CSR:PC set tp %01X:%04Xh.\n", CSR, PC);
+			printf("CSR:PC set to %01X:%04Xh.\n", CSR, PC);
 			break;
 
 		case 'm':
