@@ -443,11 +443,17 @@ CORE_STATUS coreDispRegs(void) {
 	memoryGetCodeWord(CSR, (PC + 2) & 0xfffe);
 	printf(" %04X\n", CodeWord);
 
-	printf("\tSP = %04Xh\n", SP);
-	for( i = 0; i < 16; i += 4 ) {
-		memoryGetData(0, SP + i, 4);
-		printf("\t\t[%04Xh].d = %08Xh\n", (SP + i) & 0xffff, DataRaw.dword);
+	printf("\tSP = %04Xh\n\t\t%04Xh: ", SP, SP);
+	for( i = 0; i < 8; ++i ) {
+		memoryGetData(0, SP + i, 1);
+		printf("%02X ", DataRaw.byte);
 	}
+	printf("\n\t\t%04Xh: ", (SP + 8) & 0xffff);
+	for( i = 8; i < 16; ++i ) {
+		memoryGetData(0, SP + i, 1);
+		printf("%02X ", DataRaw.byte);
+	}
+	putchar('\n');
 	putchar('\n');
 
 	printf("\tDSR = %02Xh\n", DSR);
