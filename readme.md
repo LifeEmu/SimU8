@@ -8,7 +8,7 @@ Not finished yet.
 - All the instructions about coprocessors are not implemented.
 - Interrupts are not implemented yet.
 
-It compiles with no error with `-Wall -std=c99` using gcc 3.4.5 from MinGW64.
+The emulation code(excluding the test driver) compiles with no error and only 1 warning with `-std=c99 -Wall` using gcc 3.4.5 from MinGW64.
 
 
 ## Usage
@@ -34,6 +34,8 @@ Commands:
 | `n`  | Disable the breakpoint                  |
 | `c`  | Reset core                              |
 | `d`  | Display VRAM                            |
+| `j` | Jump to a new address|
+| `m` | Show data memory |
 
 ## Credit
 - [Fraserbc on GitHub](https://github.com/Fraserbc) for knowledge about pipeline
