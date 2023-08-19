@@ -443,11 +443,17 @@ CORE_STATUS coreDispRegs(void) {
 	memoryGetCodeWord(CSR, (PC + 2) & 0xfffe);
 	printf(" %04X\n", CodeWord);
 
-	printf("\tSP = %04Xh\n", SP);
-	for( i = 0; i < 16; i += 4 ) {
-		memoryGetData(0, SP + i, 4);
-		printf("\t\t[%04Xh].d = %08Xh\n", (SP + i) & 0xffff, DataRaw.dword);
+	printf("\tSP = %04Xh\n\t\t%04Xh: ", SP, SP);
+	for( i = 0; i < 8; ++i ) {
+		memoryGetData(0, SP + i, 1);
+		printf("%02X ", DataRaw.byte);
 	}
+	printf("\n\t\t%04Xh: ", (SP + 8) & 0xffff);
+	for( i = 8; i < 16; ++i ) {
+		memoryGetData(0, SP + i, 1);
+		printf("%02X ", DataRaw.byte);
+	}
+	putchar('\n');
 	putchar('\n');
 
 	printf("\tDSR = %02Xh\n", DSR);
@@ -542,8 +548,7 @@ CORE_STATUS coreStep(void) {
 			// ADD Rn, #imm8
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
-			src = immNum;
-			GR.rs[regNumDest] = _ALU(dest, src, _ALU_ADD);
+			GR.rs[regNumDest] = _ALU(dest, immNum, _ALU_ADD);
 			break;
 
 		case 0x20:
@@ -565,8 +570,7 @@ CORE_STATUS coreStep(void) {
 			// AND Rn, #imm8
 			CycleCount = 1;
 			dest = GR.rs[(CodeWord >> 8) & 0x0f];
-			src = (immNum);
-			GR.rs[regNumDest] = _ALU(dest, src, _ALU_AND);
+			GR.rs[regNumDest] = _ALU(dest, immNum, _ALU_AND);
 			break;
 
 		case 0x30:
@@ -588,8 +592,7 @@ CORE_STATUS coreStep(void) {
 			// OR Rn, #imm8
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
-			src = (immNum);
-			GR.rs[regNumDest] = _ALU(dest, src, _ALU_OR);
+			GR.rs[regNumDest] = _ALU(dest, immNum, _ALU_OR);
 			break;
 
 		case 0x40:
@@ -611,8 +614,7 @@ CORE_STATUS coreStep(void) {
 			// XOR Rn, #imm8
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
-			src = (immNum);
-			GR.rs[regNumDest] = _ALU(dest, src, _ALU_XOR);
+			GR.rs[regNumDest] = _ALU(dest, immNum, _ALU_XOR);
 			break;
 
 		case 0x50:
@@ -634,8 +636,7 @@ CORE_STATUS coreStep(void) {
 			// CMPC Rn, #imm8
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
-			src = immNum;
-			_ALU(dest, src, _ALU_CMPC);
+			_ALU(dest, immNum, _ALU_CMPC);
 			break;
 
 		case 0x60:
@@ -657,8 +658,7 @@ CORE_STATUS coreStep(void) {
 			// ADDC Rn, #imm8
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
-			src = immNum;
-			GR.rs[regNumDest] = _ALU(dest, src, _ALU_ADDC);
+			GR.rs[regNumDest] = _ALU(dest, immNum, _ALU_ADDC);
 			break;
 
 		case 0x70:
@@ -680,8 +680,7 @@ CORE_STATUS coreStep(void) {
 			// CMP Rn, #imm8
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
-			src = immNum;
-			_ALU(dest, src, _ALU_CMP);
+			_ALU(dest, immNum, _ALU_CMP);
 			break;
 
 		case 0x80:
@@ -746,6 +745,7 @@ CORE_STATUS coreStep(void) {
 		case 0x87:
 			// CMP Rn, Rm
 			CycleCount = 1;
+			dest = GR.rs[regNumDest];
 			src = GR.rs[regNumSrc];
 			_ALU(dest, src, _ALU_CMP);
 			break;
@@ -822,8 +822,8 @@ CORE_STATUS coreStep(void) {
 				//EXTBW ERn
 				src = GR.rs[regNumSrc];
 
-				PSW.field.S = SIGN8(dest);
-				PSW.field.Z = IS_ZERO(dest);
+				PSW.field.S = SIGN8(src);
+				PSW.field.Z = IS_ZERO(src);
 
 				GR.rs[regNumDest] = PSW.field.S? 0xff : 0;
 				break;
@@ -1159,7 +1159,7 @@ CORE_STATUS coreStep(void) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
-			// SLL Rn, Rm
+			// SLL Rn, #width
 			CycleCount = 1 + EAIncDelay;
 			dest = GR.rs[regNumDest];
 			src = regNumSrc;
@@ -1171,10 +1171,10 @@ CORE_STATUS coreStep(void) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
-			// SLLC Rn, Rm
+			// SLLC Rn, #width
 			CycleCount = 1 + EAIncDelay;
 			dest = (GR.rs[regNumDest] << 8) | GR.rs[(regNumDest - 1) & 0x0f];
-			src = regNumSrc & 0x07;
+			src = regNumSrc;
 
 			dest >>= (8 - src);
 			PSW.field.C = (dest & 0x100)? 1 : 0;
@@ -1188,7 +1188,7 @@ CORE_STATUS coreStep(void) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
-			// SRL Rn, Rm
+			// SRL Rn, #width
 			CycleCount = 1 + EAIncDelay;
 			dest = GR.rs[regNumDest];
 			src = regNumSrc;
@@ -1200,10 +1200,10 @@ CORE_STATUS coreStep(void) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
-			// SRLC Rn, Rm
+			// SRLC Rn, #width
 			CycleCount = 1 + EAIncDelay;
 			dest = (GR.rs[(regNumDest + 1) & 0x0f] << 9) | (GR.rs[regNumDest] << 1);	// bit 0 for carry
-			src = regNumSrc & 0x07;
+			src = regNumSrc;
 
 			dest >>= src;
 			PSW.field.C = dest & 0x01;
@@ -1218,7 +1218,7 @@ CORE_STATUS coreStep(void) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
-			// SRA Rn, Rm
+			// SRA Rn, #width
 			CycleCount = 1 + EAIncDelay;
 			dest = GR.rs[regNumDest];
 			src = regNumSrc;
@@ -1612,7 +1612,7 @@ CORE_STATUS coreStep(void) {
 					src = GR.ers[14 >> 1];		// src = ER14
 					src = (src + _signExtend(CodeWord & 0x003f, 6)) & 0xffff;
 					memoryGetData(GET_DATA_SEG, src, 1);
-					GR.rs[regNumDest >> 1] = DataRaw.byte;
+					GR.rs[regNumDest] = DataRaw.byte;
 					CycleCount += ROMWinAccessCount;
 					break;
 
@@ -1825,7 +1825,7 @@ CORE_STATUS coreStep(void) {
 			}
 			// CMP ERn, ERm
 			CycleCount = 2;
-			GR.ers[regNumDest >> 1] = _ALU(GR.ers[regNumDest >> 1], GR.ers[regNumSrc >> 1], _ALU_CMP_W);
+			_ALU(GR.ers[regNumDest >> 1], GR.ers[regNumSrc >> 1], _ALU_CMP_W);
 			break;
 
 		case 0xf9:
@@ -2027,7 +2027,7 @@ CORE_STATUS coreStep(void) {
 					}
 					if( regNumDest & 0x08 ) {
 						// LR
-						_pushValue(CSR, 1);
+						_pushValue(LCSR, 1);
 						_pushValue(LR, 2);
 						CycleCount += 4;
 					}
