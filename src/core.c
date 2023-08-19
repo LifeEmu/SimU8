@@ -1825,7 +1825,7 @@ CORE_STATUS coreStep(void) {
 			}
 			// CMP ERn, ERm
 			CycleCount = 2;
-			GR.ers[regNumDest >> 1] = _ALU(GR.ers[regNumDest >> 1], GR.ers[regNumSrc >> 1], _ALU_CMP_W);
+			_ALU(GR.ers[regNumDest >> 1], GR.ers[regNumSrc >> 1], _ALU_CMP_W);
 			break;
 
 		case 0xf9:
