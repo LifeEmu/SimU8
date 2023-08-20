@@ -19,11 +19,14 @@ Example: If you want to use features from "core", include `inc/core.h` in your s
 
 ## Testing
 **NOTE**: `testcore.c` uses `conio.h`, so it probably won't work unmodified under non-Windows system!
+
+**NOTE #2**: This test driver aims at emulating CASIO fx-ES PLUS hardware, so it would work the best with a ROM dump from a real calculator. With that being said, keyboard emulation is yet to be implemented.
+
 - Put the binary you want to run into the root directory of this repository and rename it to `rom.bin`. (you can change the name of the file in `testcore.c`)
 - `cd` to the repository in `cmd` and run `<your compiler> testcore.c src/mmu.c src/core.c src/lcd.c <other compiler options>`.
 - Run the binary that you've just got from the compiler.
 
-Commands:
+**Commands**:
 | Char | Function                                |
 | ---- | --------------------------------------- |
 | `r`  | Show registers                          |
@@ -34,8 +37,8 @@ Commands:
 | `n`  | Disable the breakpoint                  |
 | `c`  | Reset core                              |
 | `d`  | Display VRAM                            |
-| `j` | Jump to a new address|
-| `m` | Show data memory |
+| `j`  | Jump to a new address                   |
+| `m`  | Show data memory                        |
 
 ## Credit
 - [Fraserbc on GitHub](https://github.com/Fraserbc) for knowledge about pipeline
