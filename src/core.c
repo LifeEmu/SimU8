@@ -1699,13 +1699,13 @@ CORE_STATUS coreStep(void) {
 					break;
 
 				case 0x0b00:
-					if( CodeWord == 0xfb7f ) {
+					if( CodeWord == 0xeb7f ) {
 						// RC
 						PSW.field.C = 0;
 						CycleCount = 1;
 						break;
 					}
-					if( CodeWord == 0xfbf7 ) {
+					if( CodeWord == 0xebf7 ) {
 						// DI
 						PSW.field.MIE = 0;
 						CycleCount = 3;
@@ -1716,14 +1716,14 @@ CORE_STATUS coreStep(void) {
 					break;
 
 				case 0x0d00:
-					if( CodeWord == 0xfd08 ) {
+					if( CodeWord == 0xed08 ) {
 						// EI
 						PSW.field.MIE = 1;
 						CycleCount = 1;
 						// Todo: Disable maskable interrupts for 2 cycles
 						break;
 					}
-					if( CodeWord == 0xfd80 ) {
+					if( CodeWord == 0xed80 ) {
 						// SC
 						PSW.field.C = 1;
 						CycleCount = 1;
@@ -2101,7 +2101,20 @@ CORE_STATUS coreStep(void) {
 
 				case 0xffff:
 					// BRK
-					retVal = CORE_UNIMPLEMENTED;
+					if (PSW.field.ELevel) > 1 {
+						// reset if ELEVEL is 2 or 3
+						coreZero();
+						coreReset();
+					}
+					else
+					{
+						ELR2 = (PC + 2) & 0xfffe;
+						ECSR2 = CSR;
+						EPSW2 = PSW;
+						PSW.field.ELevel = 2;
+						memoryGetCodeWord((SR_t)0, (PC_t)0x0004);
+						PC = CodeWord;
+					}
 					break;
 
 				default:
