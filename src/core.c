@@ -2069,7 +2069,7 @@ CORE_STATUS coreStep(void) {
 				case 0xfe2f:
 					// INC [EA]
 					memoryGetData(GET_DATA_SEG, EA, 1);
-					tempData.byte = _ALU(tempData.byte, 1, _ALU_ADD);
+					tempData.byte = _ALU(DataRaw.byte, 1, _ALU_ADD);
 					memorySetData(GET_DATA_SEG, EA, 1, tempData);
 					CycleCount = 2 + EAIncDelay;
 					break;
@@ -2077,7 +2077,7 @@ CORE_STATUS coreStep(void) {
 				case 0xfe3f:
 					// DEC [EA]
 					memoryGetData(GET_DATA_SEG, EA, 1);
-					tempData.byte = _ALU(tempData.byte, 1, _ALU_SUB);
+					tempData.byte = _ALU(DataRaw.byte, 1, _ALU_SUB);
 					memorySetData(GET_DATA_SEG, EA, 1, tempData);
 					CycleCount = 2 + EAIncDelay;
 					break;
@@ -2101,13 +2101,13 @@ CORE_STATUS coreStep(void) {
 
 				case 0xffff:
 					// BRK
-					if (PSW.field.ELevel) > 1 {
+					// Actually this code should call a standard interrupt implementation
+					if( PSW.field.ELevel > 1 ) {
 						// reset if ELEVEL is 2 or 3
 						coreZero();
 						coreReset();
 					}
-					else
-					{
+					else {
 						ELR2 = (PC + 2) & 0xfffe;
 						ECSR2 = CSR;
 						EPSW2 = PSW;
@@ -2115,6 +2115,7 @@ CORE_STATUS coreStep(void) {
 						memoryGetCodeWord((SR_t)0, (PC_t)0x0004);
 						PC = CodeWord;
 					}
+					CycleCount = 7 + EAIncDelay;
 					break;
 
 				default:
