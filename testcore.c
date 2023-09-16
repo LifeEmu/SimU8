@@ -66,6 +66,7 @@ void updateDisp() {
 
 int main(void) {
 	int key, isSingleStep = 1, hasBreakpoint = 0, isCommand = 0, line, offset;
+	uint8_t tempByte;
 	EA_t breakPC, jumpPC, dumpAR;
 	SR_t breakCSR, jumpCSR, dumpDSR;
 	// `hexBytes` contains hexadecimal representation of bytes
@@ -262,10 +263,10 @@ int main(void) {
 			puts("======== Memory dump ========");
 			for( line = 0; line < 8; ++line ) {
 				for( offset = 0; offset < 8; ++offset ) {
-					memoryGetData(dumpDSR, dumpAR, 1);
+					tempByte = memoryGetData(dumpDSR, dumpAR, 1);
+					sprintf(hexBytes + 3*offset, "%02X ", tempByte);
 					dumpAR = (dumpAR + 1) & 0xffff;
-					sprintf(hexBytes + 3*offset, "%02X ", DataRaw.byte);
-					charBytes[offset] = (DataRaw.byte >= 0x20 && DataRaw.byte <= 0x7f)? DataRaw.byte : '.';
+					charBytes[offset] = (tempByte >= 0x20 && tempByte <= 0x7f)? tempByte : '.';
 				}
 				printf("%02X%04X: %s|%s\n", dumpDSR, (dumpAR - 8) & 0xffff, hexBytes, charBytes);
 			}
@@ -278,7 +279,6 @@ int main(void) {
 		}
 	} while( key != 'q' );
 
-	coreReset();		// make sure core is not running..?
 	memoryFree();
 	freeVBuf(VBuf);
 	puts("Successifully exited without crashing.");
