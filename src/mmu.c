@@ -11,11 +11,8 @@
 void *CodeMemory = NULL;
 void *DataMemory = NULL;
 bool IsMemoryInited = false;
-
-// the word fetched from code memory
-uint16_t CodeWord = 0;
-// data fetched from data memory
-Data_t DataRaw = {0};
+// Status of last memory function
+MEMORY_STATUS MemoryStatus;
 // Tracks how many ROM window access has happened
 int ROMWinAccessCount = 0;
 
@@ -81,42 +78,44 @@ MEMORY_STATUS memoryFree(void) {
 }
 
 // Fetches a word from code memory
-// The word fetched is returned in `CodeWord`
 // It aligns to word boundary
 // It returns `0xffff` in unmapped pages
-MEMORY_STATUS memoryGetCodeWord(SR_t segment, PC_t offset) {
-	MEMORY_STATUS retVal = MEMORY_OK;
+uint16_t memoryGetCodeWord(SR_t segment, PC_t offset) {
+	MemoryStatus = MEMORY_OK;
 
-	if( IsMemoryInited == false )
-		return MEMORY_UNINITIALIZED;
+	if( IsMemoryInited == false ) {
+		MemoryStatus = MEMORY_UNINITIALIZED;
+		return 0;
+	}
 
 	segment &= 0x0f;	// limit segment to 0~15
 	offset &= 0xfffe;	// align to word boundary
 
 	if( (segment & CODE_MIRROW_MASK) >= CODE_PAGE_COUNT ) {
-		CodeWord = 0xffff;
-		return MEMORY_UNMAPPED;
+		MemoryStatus = MEMORY_UNMAPPED;
+		return 0xffff;
 	}
 
 	if( segment > CODE_MIRROW_MASK ) {
 		segment &= CODE_MIRROW_MASK;
-		retVal = MEMORY_MIRROWED_BANK;
+		MemoryStatus = MEMORY_MIRROWED_BANK;
 	}
 
-	CodeWord = *((uint16_t*)(CodeMemory + (segment << 16) + offset));
-	return retVal;
-
+	return *((uint16_t*)(CodeMemory + (segment << 16) + offset));
 }
 
 // fetches some data from data memory
-// the data fetched is returned in `DataRaw`
+// Unmapped memory reads 0
 // size can only be 1, 2, 4, 8
-MEMORY_STATUS memoryGetData(SR_t segment, EA_t offset, size_t size) {
-	MEMORY_STATUS retVal = MEMORY_OK;
+uint64_t memoryGetData(SR_t segment, EA_t offset, size_t size) {
+	uint64_t retVal = 0;
+	MemoryStatus = MEMORY_OK;
 
 	ROMWinAccessCount = 0;
-	if( IsMemoryInited == false )
-		return MEMORY_UNINITIALIZED;
+	if( IsMemoryInited == false ) {
+		MemoryStatus = MEMORY_UNINITIALIZED;
+		return 0;
+	}
 
 	segment &= 0xff;	// limit segment to 0~255
 	switch( size ) {	// validate size
@@ -139,19 +138,19 @@ MEMORY_STATUS memoryGetData(SR_t segment, EA_t offset, size_t size) {
 			size = 8;
 	}
 	if( size > 1 ) {
-		(offset & 1)? retVal = MEMORY_UNALIGNED : 0;
+		(offset & 1)? MemoryStatus = MEMORY_UNALIGNED : 0;
 		offset &= 0xfffe;	// align to word boundary
 	}
 
-	DataRaw.raw = 0;
-
 	// mask segment so it resides in mirrow range
 	if( segment > DATA_MIRROW_MASK ) {
-		retVal = MEMORY_MIRROWED_BANK;
+		MemoryStatus = MEMORY_MIRROWED_BANK;
 	}
 
-	if( (segment & DATA_MIRROW_MASK) >= DATA_PAGE_COUNT )
-		return MEMORY_UNMAPPED;
+	if( (segment & DATA_MIRROW_MASK) >= DATA_PAGE_COUNT ) {
+		MemoryStatus = MEMORY_UNMAPPED;
+		return 0;
+	}
 
 	offset += size;
 
@@ -159,20 +158,20 @@ MEMORY_STATUS memoryGetData(SR_t segment, EA_t offset, size_t size) {
 		--offset;	// start reading from higher address towards lower address
 		if( (segment == 0) && (offset < ROM_WINDOW_SIZE) ) {
 			++ROMWinAccessCount;
-			retVal = MEMORY_ROM_WINDOW;
+			MemoryStatus = MEMORY_ROM_WINDOW;
 		}
 
 		if( (segment == 0) && (offset >= ROM_WINDOW_SIZE) ) {
 			// data region of segment 0
-			DataRaw.byte |= *(uint8_t*)(DataMemory + offset - ROM_WINDOW_SIZE);
+			retVal |= *(uint8_t*)(DataMemory + offset - ROM_WINDOW_SIZE);
 		}
 		else {
 			// code memory
-			DataRaw.byte |= *(uint8_t*)(CodeMemory + ((segment & DATA_MIRROW_MASK) << 16) + offset);
+			retVal |= *(uint8_t*)(CodeMemory + ((segment & DATA_MIRROW_MASK) << 16) + offset);
 		}
 		if( --size == 0 )
 			break;
-		DataRaw.raw <<= 8;
+		retVal <<= 8;
 	}
 
 	return retVal;
@@ -180,11 +179,12 @@ MEMORY_STATUS memoryGetData(SR_t segment, EA_t offset, size_t size) {
 
 // writes some data into data memory
 // size can only be 1, 2, 4, 8
-MEMORY_STATUS memorySetData(SR_t segment, EA_t offset, size_t size, Data_t data) {
-	MEMORY_STATUS retVal = MEMORY_OK;
+void memorySetData(SR_t segment, EA_t offset, size_t size, uint64_t data) {
 
-	if( IsMemoryInited == false )
-		return MEMORY_UNINITIALIZED;
+	if( IsMemoryInited == false ) {
+		MemoryStatus = MEMORY_UNINITIALIZED;
+		return;
+	}
 
 	segment &= 0xff;	// limit segment to 0~255
 	switch( size ) {	// validate size
@@ -207,20 +207,20 @@ MEMORY_STATUS memorySetData(SR_t segment, EA_t offset, size_t size, Data_t data)
 			size = 8;
 	}
 	if( size > 1 ) {
-		(offset & 1)? retVal = MEMORY_UNALIGNED : 0;
+		MemoryStatus = ((offset & 1)? MEMORY_UNALIGNED : MEMORY_OK);
 		offset &= 0xfffe;	// align to word boundary
 	}
-
-	DataRaw.raw = 0;
 
 	// mask segment so it resides in mirrow range
 	if( segment > DATA_MIRROW_MASK ) {
 		segment &= DATA_MIRROW_MASK;
-		retVal = MEMORY_MIRROWED_BANK;
+		MemoryStatus = MEMORY_MIRROWED_BANK;
 	}
 
-	if( segment >= DATA_PAGE_COUNT )
-		return MEMORY_UNMAPPED;
+	if( segment >= DATA_PAGE_COUNT ) {
+		MemoryStatus =  MEMORY_UNMAPPED;
+		return;
+	}
 
 /*
 	while( size-- > 0 ) {
@@ -231,17 +231,14 @@ MEMORY_STATUS memorySetData(SR_t segment, EA_t offset, size_t size, Data_t data)
 	while( size-- > 0 ) {
 		if( (segment == 0) && (offset >= ROM_WINDOW_SIZE) ) {
 			// data region of segment 0
-			*(uint8_t*)(DataMemory + (segment << 16) + offset - ROM_WINDOW_SIZE) = data.byte;
+			*(uint8_t*)(DataMemory + (segment << 16) + offset - ROM_WINDOW_SIZE) = (uint8_t)(data & 0xff);
 		}
 		else {
 			// code memory
-			retVal = MEMORY_READ_ONLY;	// assume code memory is read-only
+			MemoryStatus = MEMORY_READ_ONLY;	// assume code memory is read-only
 		}
 		++offset;
 
-		data.raw >>= 8;
+		data >>= 8;
 	}
-
-
-	return retVal;
 }

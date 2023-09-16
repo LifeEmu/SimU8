@@ -287,31 +287,28 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 // Pushes a value onto U8 stack
 // Note that it modifies SP
 static void _pushValue(uint64_t value, uint8_t bytes) {
-	Data_t tempData = {.raw = value};
 	int i = 0;
 	bytes = ((bytes > 8)? 8 : bytes);
 	if( bytes & 0x01 )
 		--SP;
 	SP -= bytes;
 	while( bytes-- > 0 ) {
-		memorySetData(0, SP + i++, 1, tempData);
-		tempData.raw >>= 8;
+		memorySetData(0, SP + i++, 1, value);
+		value >>= 8;
 	}
 }
 
 // Pops a value from U8 stack
 // Note that it modifies SP
-static Data_t _popValue(uint8_t bytes) {
-	Data_t tempData = {.raw = 0};
+static uint64_t _popValue(uint8_t bytes) {
+	uint64_t retVal = 0;
 	EA_t adj = (bytes + 1) & 0xfffe;
 	bytes = ((bytes > 8)? 8 : bytes);
 	while( bytes-- > 0 ) {
-		tempData.raw <<= 8;
-		memoryGetData(0, SP + bytes, 1);
-		tempData.byte = DataRaw.byte;
+		retVal = (retVal << 8) | memoryGetData(0, SP + bytes, 1);
 	}
 	SP += adj;
-	return tempData;
+	return retVal;
 }
 
 
@@ -400,12 +397,10 @@ CORE_STATUS coreReset(void) {
 	DSR = 0;
 
 	// initialize SP
-	memoryGetCodeWord((SR_t)0, (PC_t)0x0000);
-	SP = CodeWord;
+	SP = memoryGetCodeWord((SR_t)0, (PC_t)0x0000);
 
 	// initialize PC
-	memoryGetCodeWord((SR_t)0, (PC_t)0x0002);
-	PC = CodeWord;
+	PC = memoryGetCodeWord((SR_t)0, (PC_t)0x0002);
 
 	// reset other core states
 	IntMaskCycle = 0;
@@ -438,20 +433,16 @@ CORE_STATUS coreDispRegs(void) {
 	puts("\n Control registers:");
 
 	printf("\tCSR:PC = %01X:%04Xh\n", CSR, PC);
-	memoryGetCodeWord(CSR, PC);
-	printf("\t\tCode words at CSR:PC: %04X", CodeWord);
-	memoryGetCodeWord(CSR, (PC + 2) & 0xfffe);
-	printf(" %04X\n", CodeWord);
+	printf("\t\tCode words at CSR:PC: %04X", memoryGetCodeWord(CSR, PC));
+	printf(" %04X\n", memoryGetCodeWord(CSR, (PC + 2) & 0xfffe));
 
 	printf("\tSP = %04Xh\n\t\t%04Xh: ", SP, SP);
 	for( i = 0; i < 8; ++i ) {
-		memoryGetData(0, SP + i, 1);
-		printf("%02X ", DataRaw.byte);
+		printf("%02X ", memoryGetData(0, SP + i, 1));
 	}
 	printf("\n\t\t%04Xh: ", (SP + 8) & 0xffff);
 	for( i = 8; i < 16; ++i ) {
-		memoryGetData(0, SP + i, 1);
-		printf("%02X ", DataRaw.byte);
+		printf("%02X ", memoryGetData(0, SP + i, 1));
 	}
 	putchar('\n');
 	putchar('\n');
@@ -481,13 +472,12 @@ CORE_STATUS coreStep(void) {
 	CycleCount = 0;
 	// xxxx_dddd_ssss_xxxx
 	// x: decodeIndex; d: Dest, s: src
-	uint8_t decodeIndex, regNumDest, regNumSrc;
-	uint16_t immNum;
+	uint8_t decodeIndex, regNumDest, regNumSrc, immNum;
+	uint16_t codeWord;
 	bool isEAInc = false;
 	bool isDSRSet = false;
 
 	uint64_t dest, src;
-	Data_t tempData = {0};
 
 	if( IsMemoryInited == false ) {
 		retVal = CORE_MEMORY_UNINITIALIZED;
@@ -495,15 +485,13 @@ CORE_STATUS coreStep(void) {
 	}
 
 	// fetch instruction
-	memoryGetCodeWord(CSR, PC);
+	codeWord = memoryGetCodeWord(CSR, PC);
+	PC = (PC + 2) & 0xfffe;		// increment PC
 
-	// increment PC
-	PC = (PC + 2) & 0xfffe;
-
-	decodeIndex = ((CodeWord >> 8) & 0xf0) | (CodeWord & 0x0f);
-	regNumDest = (CodeWord >> 8) & 0x0f;
-	regNumSrc = (CodeWord >> 4) & 0x0f;
-	immNum = CodeWord & 0xff;
+	decodeIndex = ((codeWord >> 8) & 0xf0) | (codeWord & 0x0f);
+	regNumDest = (codeWord >> 8) & 0x0f;
+	regNumSrc = (codeWord >> 4) & 0x0f;
+	immNum = codeWord & 0xff;
 	switch( decodeIndex ) {
 		case 0x00:
 		case 0x01:
@@ -569,7 +557,7 @@ CORE_STATUS coreStep(void) {
 		case 0x2f:
 			// AND Rn, #imm8
 			CycleCount = 1;
-			dest = GR.rs[(CodeWord >> 8) & 0x0f];
+			dest = GR.rs[(codeWord >> 8) & 0x0f];
 			GR.rs[regNumDest] = _ALU(dest, immNum, _ALU_AND);
 			break;
 
@@ -818,7 +806,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0x8f:
-			if( (CodeWord & 0xf11f) == 0x810f ) {
+			if( (codeWord & 0xf11f) == 0x810f ) {
 				//EXTBW ERn
 				src = GR.rs[regNumSrc];
 
@@ -828,7 +816,7 @@ CORE_STATUS coreStep(void) {
 				GR.rs[regNumDest] = PSW.field.S? 0xff : 0;
 				break;
 			}
-			switch( CodeWord & 0xf0ff ) {
+			switch( codeWord & 0xf0ff ) {
 				case 0x801f:
 					// DAA Rn
 					// Uh gosh this is so much of a pain
@@ -861,19 +849,18 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0x90:
-			if( (CodeWord & 0x0010) == 0x0000 ) {
+			if( (codeWord & 0x0010) == 0x0000 ) {
 				// L Rn, [ERm]
 				src = GR.ers[regNumSrc >> 1];
 				CycleCount += EAIncDelay;
 			}
 			else {
-				switch( CodeWord & 0xf0ff ) {
+				switch( codeWord & 0xf0ff ) {
 					case 0x9010:
 						// L Rn, [adr]
 						// fetch source address
-						memoryGetCodeWord(CSR, PC);
+						src = memoryGetCodeWord(CSR, PC);
 						PC = (PC + 2) & 0xfffe;
-						src = CodeWord;
 						CycleCount += EAIncDelay;
 						break;
 
@@ -894,8 +881,7 @@ CORE_STATUS coreStep(void) {
 				}
 			}
 
-			memoryGetData(GET_DATA_SEG, src, 1);
-			dest = DataRaw.byte;
+			dest = memoryGetData(GET_DATA_SEG, src, 1);
 			CycleCount += 1 + ROMWinAccessCount;
 
 			PSW.field.S = SIGN8(dest);
@@ -904,19 +890,18 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0x91:
-			if( (CodeWord & 0x0010) == 0x0000 ) {
+			if( (codeWord & 0x0010) == 0x0000 ) {
 				// ST Rn, [ERm]
 				dest = GR.ers[regNumSrc >> 1];
 				CycleCount += EAIncDelay;
 			}
 			else {
-				switch( CodeWord & 0xf0ff ) {
+				switch( codeWord & 0xf0ff ) {
 					case 0x9011:
 						// ST Rn, [adr]
 						// fetch destination address
-						memoryGetCodeWord(CSR, PC);
+						dest = memoryGetCodeWord(CSR, PC);
 						PC = (PC + 2) & 0xfffe;
-						dest = CodeWord;
 						CycleCount += EAIncDelay;
 						break;
 
@@ -937,25 +922,23 @@ CORE_STATUS coreStep(void) {
 				}
 			}
 
-			tempData.byte = GR.rs[regNumDest];
-			memorySetData(GET_DATA_SEG, dest, 1, tempData);
+			memorySetData(GET_DATA_SEG, dest, 1, GR.rs[regNumDest]);
 			CycleCount += 1;
 			break;
 
 		case 0x92:
-			if( (CodeWord & 0x0110) == 0x0000 ) {
+			if( (codeWord & 0x0110) == 0x0000 ) {
 				// L ERn, [ERm]
 				src = GR.ers[regNumSrc >> 1];
 				CycleCount += EAIncDelay;
 			}
 			else {
-				switch( CodeWord & 0xf1ff ) {
+				switch( codeWord & 0xf1ff ) {
 					case 0x9012:
 						// L ERn, [adr]
 						// fetch source address
-						memoryGetCodeWord(CSR, PC);
+						src = memoryGetCodeWord(CSR, PC);
 						PC = (PC + 2) & 0xfffe;
-						src = CodeWord;
 						CycleCount += EAIncDelay;
 						break;
 
@@ -976,8 +959,7 @@ CORE_STATUS coreStep(void) {
 				}
 			}
 
-			memoryGetData(GET_DATA_SEG, src, 2);
-			dest = DataRaw.word;
+			dest = memoryGetData(GET_DATA_SEG, src, 2);
 			CycleCount += 2 + ROMWinAccessCount;
 
 			PSW.field.S = SIGN16(dest);
@@ -986,19 +968,18 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0x93:
-			if( (CodeWord & 0x0110) == 0x0000 ) {
+			if( (codeWord & 0x0110) == 0x0000 ) {
 				// ST ERn, [ERm]
 				dest = GR.ers[regNumSrc >> 1];
 				CycleCount += EAIncDelay;
 			}
 			else {
-				switch( CodeWord & 0xf1ff ) {
+				switch( codeWord & 0xf1ff ) {
 					case 0x9013:
 						// ST ERn, [adr]
 						// fetch destination address
-						memoryGetCodeWord(CSR, PC);
+						dest = memoryGetCodeWord(CSR, PC);
 						PC = (PC + 2) & 0xfffe;
-						dest = CodeWord;
 						CycleCount += EAIncDelay;
 						break;
 
@@ -1019,14 +1000,13 @@ CORE_STATUS coreStep(void) {
 				}
 			}
 
-			tempData.word = GR.ers[regNumDest >> 1];
-			memorySetData(GET_DATA_SEG, dest, 2, tempData);
+			memorySetData(GET_DATA_SEG, dest, 2, GR.ers[regNumDest >> 1]);
 			CycleCount += 2;
 			break;
 
 		case 0x94:
 			src = EA;
-			switch( CodeWord & 0xf3ff ) {
+			switch( codeWord & 0xf3ff ) {
 				case 0x9034:
 					// L XRn, [EA]
 					break;
@@ -1042,8 +1022,7 @@ CORE_STATUS coreStep(void) {
 					goto exit;
 			}
 
-			memoryGetData(GET_DATA_SEG, src, 4);
-			dest = DataRaw.dword;
+			dest = memoryGetData(GET_DATA_SEG, src, 4);
 			CycleCount = 4 + ROMWinAccessCount;
 
 			PSW.field.S = SIGN32(dest);
@@ -1053,7 +1032,7 @@ CORE_STATUS coreStep(void) {
 
 		case 0x95:
 			dest = EA;
-			switch( CodeWord & 0xf3ff ) {
+			switch( codeWord & 0xf3ff ) {
 				case 0x9035:
 					// ST XRn, [EA]
 					break;
@@ -1069,14 +1048,13 @@ CORE_STATUS coreStep(void) {
 					goto exit;
 			}
 
-			tempData.dword = GR.xrs[regNumDest >> 2];
-			memorySetData(GET_DATA_SEG, dest, 4, tempData);
+			memorySetData(GET_DATA_SEG, dest, 4, GR.xrs[regNumDest >> 2]);
 			CycleCount = 4;
 			break;
 
 		case 0x96:
 			src = EA;
-			switch( CodeWord & 0xf7ff ) {
+			switch( codeWord & 0xf7ff ) {
 				case 0x9036:
 					// L QRn, [EA]
 					break;
@@ -1092,8 +1070,7 @@ CORE_STATUS coreStep(void) {
 					goto exit;
 			}
 
-			memoryGetData(GET_DATA_SEG, src, 8);
-			dest = DataRaw.qword;
+			dest = memoryGetData(GET_DATA_SEG, src, 8);
 			CycleCount = 8 + ROMWinAccessCount;
 
 			PSW.field.S = SIGN64(dest);
@@ -1103,7 +1080,7 @@ CORE_STATUS coreStep(void) {
 
 		case 0x97:
 			dest = EA;
-			switch( CodeWord & 0xf7ff ) {
+			switch( codeWord & 0xf7ff ) {
 				case 0x9037:
 					// ST QRn, [EA]
 					break;
@@ -1119,43 +1096,38 @@ CORE_STATUS coreStep(void) {
 					goto exit;
 			}
 
-			tempData.qword = GR.qrs[regNumDest >> 3];
-			memorySetData(GET_DATA_SEG, dest, 8, tempData);
+			memorySetData(GET_DATA_SEG, dest, 8, GR.qrs[regNumDest >> 3]);
 			CycleCount = 8;
 			break;
 
 		case 0x98:
-			if( (CodeWord & 0xf01f) != 0x9008 ) {
+			if( (codeWord & 0xf01f) != 0x9008 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
 			// L Rn, d16[ERm]
 			src = GR.ers[regNumSrc >> 1];
-			memoryGetCodeWord(CSR, PC);
+			src = (src + memoryGetCodeWord(CSR, PC)) & 0xffff;
 			PC = (PC + 2) & 0xfffe;
-			src = (src + CodeWord) & 0xffff;
-			memoryGetData(GET_DATA_SEG, src, 1);
-			GR.rs[regNumDest] = DataRaw.byte;
+			GR.rs[regNumDest] = memoryGetData(GET_DATA_SEG, src, 1);
 			CycleCount = 2 + ROMWinAccessCount + EAIncDelay;
 			break;
 
 		case 0x99:
-			if( (CodeWord & 0xf01f) != 0x9009 ) {
+			if( (codeWord & 0xf01f) != 0x9009 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
 			// ST Rn, d16[ERm]
 			dest = GR.ers[regNumSrc >> 1];
-			memoryGetCodeWord(CSR, PC);
+			dest = (dest + memoryGetCodeWord(CSR, PC)) & 0xffff;
 			PC = (PC + 2) & 0xfffe;
-			dest = (dest + CodeWord) & 0xffff;
-			tempData.byte = GR.rs[regNumDest];
-			memorySetData(GET_DATA_SEG, dest, 1, tempData);
+			memorySetData(GET_DATA_SEG, dest, 1, GR.rs[regNumDest]);
 			CycleCount = 2 + EAIncDelay;
 			break;
 
 		case 0x9a:
-			if( (CodeWord & 0x0080) != 0x0000 ) {
+			if( (codeWord & 0x0080) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1167,7 +1139,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0x9b:
-			if( (CodeWord & 0x0080) != 0x0000 ) {
+			if( (codeWord & 0x0080) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1184,7 +1156,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0x9c:
-			if( (CodeWord & 0x0080) != 0x0000 ) {
+			if( (codeWord & 0x0080) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1196,7 +1168,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0x9d:
-			if( (CodeWord & 0x0080) != 0x0000 ) {
+			if( (codeWord & 0x0080) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1214,7 +1186,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0x9e:
-			if( (CodeWord & 0x0080) != 0x0000 ) {
+			if( (codeWord & 0x0080) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1226,7 +1198,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0x9f:
-			if( (CodeWord & 0x0f00) != 0x0000 ) {
+			if( (codeWord & 0x0f00) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1238,17 +1210,15 @@ CORE_STATUS coreStep(void) {
 
 		case 0xa0:
 			src = regNumSrc & 0x07;
-			if( (CodeWord & 0x0080) != 0x0000 ) {
-				if( (CodeWord & 0x0f80) != 0x0080 ) {
+			if( (codeWord & 0x0080) != 0x0000 ) {
+				if( (codeWord & 0x0f80) != 0x0080 ) {
 					retVal = CORE_ILLEGAL_INSTRUCTION;
 					break;
 				}
 				// SB Dbitadr
-				memoryGetCodeWord(CSR, PC);
+				dest = memoryGetData(GET_DATA_SEG, (EA_t)memoryGetCodeWord(CSR, PC), 1);
 				PC = (PC + 2) & 0xfffe;
-				memoryGetData(GET_DATA_SEG, (EA_t)CodeWord, 1);
-				tempData.byte = _ALU(DataRaw.byte, src, _ALU_SB);
-				memorySetData(GET_DATA_SEG, CodeWord, 1, tempData);
+				memorySetData(GET_DATA_SEG, codeWord, 1, _ALU(dest, src, _ALU_SB));
 				CycleCount = 2 + EAIncDelay;
 				break;
 			}
@@ -1259,16 +1229,15 @@ CORE_STATUS coreStep(void) {
 
 		case 0xa1:
 			src = regNumSrc & 0x07;
-			if( (CodeWord & 0x0080) != 0x0000 ) {
-				if( (CodeWord & 0x0f80) != 0x0080 ) {
+			if( (codeWord & 0x0080) != 0x0000 ) {
+				if( (codeWord & 0x0f80) != 0x0080 ) {
 					retVal = CORE_ILLEGAL_INSTRUCTION;
 					break;
 				}
 				// TB Dbitadr
-				memoryGetCodeWord(CSR, PC);
+				dest = memoryGetData(GET_DATA_SEG, (EA_t)memoryGetCodeWord(CSR, PC), 1);
 				PC = (PC + 2) & 0xfffe;
-				memoryGetData(GET_DATA_SEG, (EA_t)CodeWord, 1);
-				_ALU(DataRaw.byte, src, _ALU_TB);
+				_ALU(dest, src, _ALU_TB);
 				CycleCount = 2 + ROMWinAccessCount + EAIncDelay;
 				break;
 			}
@@ -1279,17 +1248,15 @@ CORE_STATUS coreStep(void) {
 
 		case 0xa2:
 			src = regNumSrc & 0x07;
-			if( (CodeWord & 0x0080) != 0x0000 ) {
-				if( (CodeWord & 0x0f80) != 0x0080 ) {
+			if( (codeWord & 0x0080) != 0x0000 ) {
+				if( (codeWord & 0x0f80) != 0x0080 ) {
 					retVal = CORE_ILLEGAL_INSTRUCTION;
 					break;
 				}
 				// RB Dbitadr
-				memoryGetCodeWord(CSR, PC);
+				dest = memoryGetData(GET_DATA_SEG, (EA_t)memoryGetCodeWord(CSR, PC), 1);
 				PC = (PC + 2) & 0xfffe;
-				memoryGetData(GET_DATA_SEG, (EA_t)CodeWord, 1);
-				tempData.byte = _ALU(DataRaw.byte, src, _ALU_RB);
-				memorySetData(GET_DATA_SEG, CodeWord, 1, tempData);
+				memorySetData(GET_DATA_SEG, codeWord, 1, _ALU(dest, src, _ALU_RB));
 				CycleCount = 2 + EAIncDelay;
 				break;
 			}
@@ -1299,7 +1266,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xa3:
-			if( (CodeWord & 0x00f0) != 0x0000 ) {
+			if( (codeWord & 0x00f0) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1309,7 +1276,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xa4:
-			if( (CodeWord & 0x00f0) != 0x0000 ) {
+			if( (codeWord & 0x00f0) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1320,7 +1287,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xa5:
-			if( (CodeWord & 0x01f0) != 0x0000 ) {
+			if( (codeWord & 0x01f0) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1335,7 +1302,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xa7:
-			if( (CodeWord & 0x00f0) != 0x0000 ) {
+			if( (codeWord & 0x00f0) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1345,43 +1312,39 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xa8:
-			if( (CodeWord & 0xf11f) != 0xa008 ) {
+			if( (codeWord & 0xf11f) != 0xa008 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
 			// L ERn, d16[ERm]
 			src = GR.ers[regNumSrc >> 1];
-			memoryGetCodeWord(CSR, PC);
+			src = (src + memoryGetCodeWord(CSR, PC)) & 0xffff;
 			PC = (PC + 2) & 0xfffe;
-			src = (src + CodeWord) & 0xffff;
-			memoryGetData(GET_DATA_SEG, src, 2);
-			GR.ers[regNumDest >> 1] = DataRaw.word;
+			GR.ers[regNumDest >> 1] = memoryGetData(GET_DATA_SEG, src, 2);
 			CycleCount = 3 + ROMWinAccessCount + EAIncDelay;
 			break;
 
 		case 0xa9:
-			if( (CodeWord & 0xf11f) != 0xa009 ) {
+			if( (codeWord & 0xf11f) != 0xa009 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
 			// ST ERn, d16[ERm]
 			dest = GR.ers[regNumSrc >> 1];
-			memoryGetCodeWord(CSR, PC);
+			dest = (dest + memoryGetCodeWord(CSR, PC)) & 0xffff;
 			PC = (PC + 2) & 0xfffe;
-			dest = (dest + CodeWord) & 0xffff;
-			tempData.word = GR.ers[regNumDest >> 1];
-			memorySetData(GET_DATA_SEG, dest, 2, tempData);
+			memorySetData(GET_DATA_SEG, dest, 2, GR.ers[regNumDest >> 1]);
 			CycleCount = 3 + EAIncDelay;
 			break;
 
 		case 0xaa:
-			if( (CodeWord & 0x01f0) == 0x0010 ) {
+			if( (codeWord & 0x01f0) == 0x0010 ) {
 				// MOV ERn, SP
 				GR.ers[regNumDest >> 1] = SP;
 				CycleCount = 1;
 				break;
 			}
-			if( (CodeWord & 0x0f10) == 0x0100 ) {
+			if( (codeWord & 0x0f10) == 0x0100 ) {
 				// MOV SP, ERm
 				SP = GR.ers[regNumSrc >> 1];
 				CycleCount = 1;
@@ -1391,7 +1354,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xab:
-			if( (CodeWord & 0x0f00) != 0x0000 ) {
+			if( (codeWord & 0x0f00) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1401,7 +1364,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xac:
-			if( (CodeWord & 0x0f00) != 0x0000 ) {
+			if( (codeWord & 0x0f00) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1411,7 +1374,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xad:
-			if( (CodeWord & 0x01f0) != 0x0000 ) {
+			if( (codeWord & 0x01f0) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1426,7 +1389,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xaf:
-			if( (CodeWord & 0x0f00) != 0x0000 ) {
+			if( (codeWord & 0x0f00) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1451,39 +1414,35 @@ CORE_STATUS coreStep(void) {
 		case 0xbd:
 		case 0xbe:
 		case 0xbf:
-			switch( CodeWord & 0x01c0 ) {
+			switch( codeWord & 0x01c0 ) {
 				case 0x0000:
 					// L ERn, disp6[BP]
 					src = GR.ers[12 >> 1];		// src = ER12
-					src = (src + _signExtend(CodeWord & 0x003f, 6)) & 0xffff;
-					memoryGetData(GET_DATA_SEG, src, 2);
-					GR.ers[regNumDest >> 1] = DataRaw.word;
+					src = (src + _signExtend(codeWord & 0x003f, 6)) & 0xffff;
+					GR.ers[regNumDest >> 1] = memoryGetData(GET_DATA_SEG, src, 2);
 					CycleCount += ROMWinAccessCount;
 					break;
 
 				case 0x0040:
 					// L ERn, disp6[FP]
 					src = GR.ers[14 >> 1];		// src = ER14
-					src = (src + _signExtend(CodeWord & 0x003f, 6)) & 0xffff;
-					memoryGetData(GET_DATA_SEG, src, 2);
-					GR.ers[regNumDest >> 1] = DataRaw.word;
+					src = (src + _signExtend(codeWord & 0x003f, 6)) & 0xffff;
+					GR.ers[regNumDest >> 1] = memoryGetData(GET_DATA_SEG, src, 2);
 					CycleCount += ROMWinAccessCount;
 					break;
 
 				case 0x0080:
 					// ST ERn, disp6[BP]
 					dest = GR.ers[12 >> 1];		// dest = ER12
-					dest = (dest + _signExtend(CodeWord & 0x003f, 6)) & 0xffff;
-					tempData.word = GR.ers[regNumDest >> 1];
-					memorySetData(GET_DATA_SEG, dest, 2, tempData);
+					dest = (dest + _signExtend(codeWord & 0x003f, 6)) & 0xffff;
+					memorySetData(GET_DATA_SEG, dest, 2, GR.ers[regNumDest >> 1]);
 					break;
 
 				case 0x00c0:
 					// ST ERn, disp6[FP]
 					dest = GR.ers[14 >> 1];		// dest = ER14
-					dest = (dest + _signExtend(CodeWord & 0x003f, 6)) & 0xffff;
-					tempData.word = GR.ers[regNumDest >> 1];
-					memorySetData(GET_DATA_SEG, dest, 2, tempData);
+					dest = (dest + _signExtend(codeWord & 0x003f, 6)) & 0xffff;
+					memorySetData(GET_DATA_SEG, dest, 2, GR.ers[regNumDest >> 1]);
 					break;
 
 				default:
@@ -1509,7 +1468,7 @@ CORE_STATUS coreStep(void) {
 		case 0xcd:
 		case 0xce:
 		case 0xcf:
-			switch( CodeWord & 0x0f00 ) {
+			switch( codeWord & 0x0f00 ) {
 				case 0x0000:
 					// GE
 					src = !PSW.field.C;
@@ -1597,39 +1556,35 @@ CORE_STATUS coreStep(void) {
 		case 0xdd:
 		case 0xde:
 		case 0xdf:
-			switch( CodeWord & 0x00c0 ) {
+			switch( codeWord & 0x00c0 ) {
 				case 0x0000:
 					// L Rn, disp6[BP]
 					src = GR.ers[12 >> 1];		// src = ER12
-					src = (src + _signExtend(CodeWord & 0x003f, 6)) & 0xffff;
-					memoryGetData(GET_DATA_SEG, src, 1);
-					GR.rs[regNumDest] = DataRaw.byte;
+					src = (src + _signExtend(codeWord & 0x003f, 6)) & 0xffff;
+					GR.rs[regNumDest] = memoryGetData(GET_DATA_SEG, src, 1);
 					CycleCount += ROMWinAccessCount;
 					break;
 
 				case 0x0040:
 					// L Rn, disp6[FP]
 					src = GR.ers[14 >> 1];		// src = ER14
-					src = (src + _signExtend(CodeWord & 0x003f, 6)) & 0xffff;
-					memoryGetData(GET_DATA_SEG, src, 1);
-					GR.rs[regNumDest] = DataRaw.byte;
+					src = (src + _signExtend(codeWord & 0x003f, 6)) & 0xffff;
+					GR.rs[regNumDest] = memoryGetData(GET_DATA_SEG, src, 1);
 					CycleCount += ROMWinAccessCount;
 					break;
 
 				case 0x0080:
 					// ST Rn, disp6[BP]
 					dest = GR.ers[12 >> 1];		// dest = ER12
-					dest = (dest + _signExtend(CodeWord & 0x003f, 6)) & 0xffff;
-					tempData.byte = GR.rs[regNumDest];
-					memorySetData(GET_DATA_SEG, dest, 1, tempData);
+					dest = (dest + _signExtend(codeWord & 0x003f, 6)) & 0xffff;
+					memorySetData(GET_DATA_SEG, dest, 1, GR.rs[regNumDest]);
 					break;
 
 				case 0x00c0:
 					// ST Rn, disp6[FP]
 					dest = GR.ers[14 >> 1];		// dest = ER14
-					dest = (dest + _signExtend(CodeWord & 0x003f, 6)) & 0xffff;
-					tempData.byte = GR.rs[regNumDest];
-					memorySetData(GET_DATA_SEG, dest, 1, tempData);
+					dest = (dest + _signExtend(codeWord & 0x003f, 6)) & 0xffff;
+					memorySetData(GET_DATA_SEG, dest, 1, GR.rs[regNumDest]);
 					break;
 
 				default:
@@ -1656,24 +1611,23 @@ CORE_STATUS coreStep(void) {
 		case 0xee:
 		case 0xef:
 			// I don't like it when it has immediates on the end of the instructions
-			if( (CodeWord & 0x0180) == 0x0000 ) {
+			if( (codeWord & 0x0180) == 0x0000 ) {
 				// MOV ERn, #imm7
-				src = _signExtend(CodeWord & 0x007f, 7);
+				src = _signExtend(codeWord & 0x007f, 7);
 				GR.ers[regNumDest >> 1] = src;
 				PSW.field.Z = IS_ZERO(src);
 				PSW.field.S = SIGN16(src);
 				CycleCount = 2;
 				break;
 			}
-			if( (CodeWord & 0x0180) == 0x0080 ) {
+			if( (codeWord & 0x0180) == 0x0080 ) {
 				// ADD ERn, #imm7
-				src = _signExtend(CodeWord & 0x007f, 7);
-//				printf("\nADD ERn, #imm7 | ERn = %04X, #imm7 = %04X\n", GR.ers[regNumDest >> 1], _signExtend(CodeWord & 0x007f, 7));
+				src = _signExtend(codeWord & 0x007f, 7);
 				GR.ers[regNumDest >> 1] = _ALU(GR.ers[regNumDest >> 1], src, _ALU_ADD_W);
 				CycleCount = 2;
 				break;
 			}
-			switch( CodeWord & 0x0f00 ) {
+			switch( codeWord & 0x0f00 ) {
 				case 0x0100:
 					// ADD SP, #signed8
 					SP = SP + _signExtend(immNum, 8);
@@ -1699,13 +1653,13 @@ CORE_STATUS coreStep(void) {
 					break;
 
 				case 0x0b00:
-					if( CodeWord == 0xeb7f ) {
+					if( codeWord == 0xeb7f ) {
 						// RC
 						PSW.field.C = 0;
 						CycleCount = 1;
 						break;
 					}
-					if( CodeWord == 0xebf7 ) {
+					if( codeWord == 0xebf7 ) {
 						// DI
 						PSW.field.MIE = 0;
 						CycleCount = 3;
@@ -1716,14 +1670,14 @@ CORE_STATUS coreStep(void) {
 					break;
 
 				case 0x0d00:
-					if( CodeWord == 0xed08 ) {
+					if( codeWord == 0xed08 ) {
 						// EI
 						PSW.field.MIE = 1;
 						CycleCount = 1;
 						// Todo: Disable maskable interrupts for 2 cycles
 						break;
 					}
-					if( CodeWord == 0xed80 ) {
+					if( codeWord == 0xed80 ) {
 						// SC
 						PSW.field.C = 1;
 						CycleCount = 1;
@@ -1736,33 +1690,31 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xf0:
-			if( (CodeWord & 0x00f0) != 0x0000 ) {
+			if( (codeWord & 0x00f0) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
 			// B Cadr
-			memoryGetCodeWord(CSR, PC);
-			PC = CodeWord & 0xfffe;
+			PC = memoryGetCodeWord(CSR, PC) & 0xfffe;
 			CSR = regNumDest;
 			CycleCount = 2 + EAIncDelay;
 			break;
 
 		case 0xf1:
-			if( (CodeWord & 0x00f0) != 0x0000 ) {
+			if( (codeWord & 0x00f0) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
 			// BL Cadr
-			memoryGetCodeWord(CSR, PC);
 			LR = (PC + 2) & 0xfffe;
 			LCSR = CSR;
-			PC = CodeWord & 0xfffe;
+			PC = memoryGetCodeWord(CSR, PC) & 0xfffe;
 			CSR = regNumDest;
 			CycleCount = 2 + EAIncDelay;
 			break;
 
 		case 0xf2:
-			if( (CodeWord & 0x0f10) != 0x0000 ) {
+			if( (codeWord & 0x0f10) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1772,7 +1724,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xf3:
-			if( (CodeWord & 0x0f10) != 0x0000 ) {
+			if( (codeWord & 0x0f10) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1784,7 +1736,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xf4:
-			if( (CodeWord & 0x0100) != 0x0000 ) {
+			if( (codeWord & 0x0100) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1796,7 +1748,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xf5:
-			if( (CodeWord & 0x0110) != 0x0000 ) {
+			if( (codeWord & 0x0110) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1809,7 +1761,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xf6:
-			if( (CodeWord & 0x0110) != 0x0000 ) {
+			if( (codeWord & 0x0110) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1819,7 +1771,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xf7:
-			if( (CodeWord & 0x0110) != 0x0000 ) {
+			if( (codeWord & 0x0110) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1829,7 +1781,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xf9:
-			if( (CodeWord & 0x0100) != 0x0000 ) {
+			if( (codeWord & 0x0100) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1852,7 +1804,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xfa:
-			if( (CodeWord & 0x0010) != 0x0000 ) {
+			if( (codeWord & 0x0010) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
@@ -1862,27 +1814,25 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xfb:
-			if( (CodeWord & 0x0010) != 0x0000 ) {
+			if( (codeWord & 0x0010) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
 			// LEA disp16[ERm]
 			dest = GR.ers[regNumSrc >> 1];
-			memoryGetCodeWord(CSR, PC);
+			EA = (memoryGetCodeWord(CSR, PC) + dest) & 0xffff;
 			PC = (PC + 2) & 0xfffe;
-			EA = (CodeWord + dest) & 0xffff;
 			CycleCount = 2;
 			break;
 
 		case 0xfc:
-			if( (CodeWord & 0x0010) != 0x0000 ) {
+			if( (codeWord & 0x0010) != 0x0000 ) {
 				retVal = CORE_ILLEGAL_INSTRUCTION;
 				break;
 			}
 			// LEA Dadr
-			memoryGetCodeWord(CSR, PC);
+			EA = memoryGetCodeWord(CSR, PC);
 			PC = (PC + 2) & 0xfffe;
-			EA = CodeWord;
 			CycleCount = 2;
 			break;
 
@@ -1907,10 +1857,10 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xfe:
-			switch( CodeWord & 0x00f0 ) {
+			switch( codeWord & 0x00f0 ) {
 				case 0x0000:
 					// POP Rn
-					GR.rs[regNumDest] = _popValue(1).byte;
+					GR.rs[regNumDest] = _popValue(1);
 					CycleCount = 2 + EAIncDelay;
 					break;
 
@@ -1920,7 +1870,7 @@ CORE_STATUS coreStep(void) {
 						retVal = CORE_ILLEGAL_INSTRUCTION;
 						break;
 					}
-					GR.ers[regNumDest >> 1] = _popValue(2).word;
+					GR.ers[regNumDest >> 1] = _popValue(2);
 					CycleCount = 2 + EAIncDelay;
 					break;
 
@@ -1930,7 +1880,7 @@ CORE_STATUS coreStep(void) {
 						retVal = CORE_ILLEGAL_INSTRUCTION;
 						break;
 					}
-					GR.xrs[regNumDest >> 2] = _popValue(4).dword;
+					GR.xrs[regNumDest >> 2] = _popValue(4);
 					CycleCount = 4 + EAIncDelay;
 					break;
 
@@ -1940,7 +1890,7 @@ CORE_STATUS coreStep(void) {
 						retVal = CORE_ILLEGAL_INSTRUCTION;
 						break;
 					}
-					GR.qrs[regNumDest >> 3] = _popValue(8).qword;
+					GR.qrs[regNumDest >> 3] = _popValue(8);
 					CycleCount = 8 + EAIncDelay;
 					break;
 
@@ -1985,24 +1935,24 @@ CORE_STATUS coreStep(void) {
 					// Assume LARGE model (with CSR)
 					if( regNumDest & 0x01 ) {
 						// EA
-						EA = _popValue(2).word;
+						EA = _popValue(2);
 						CycleCount += 2;
 					}
 					if( regNumDest & 0x08 ) {
 						// LR
-						LR = _popValue(2).word;
-						LCSR = _popValue(1).byte & 0x0f;
+						LR = _popValue(2);
+						LCSR = _popValue(1) & 0x0f;
 						CycleCount += 4;
 					}
 					if( regNumDest & 0x04 ) {
 						// PSW
-						PSW.raw = _popValue(1).byte;
+						PSW.raw = _popValue(1);
 						CycleCount += 2;
 					}
 					if( regNumDest & 0x02 ) {
 						// PC
-						PC = _popValue(2).word & 0xfffe;
-						CSR = _popValue(1).byte & 0x0f;
+						PC = _popValue(2) & 0xfffe;
+						CSR = _popValue(1) & 0x0f;
 						CycleCount += 7;
 					}
 					if( CycleCount )
@@ -2050,7 +2000,7 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xff:
-			switch( CodeWord ) {
+			switch( codeWord ) {
 				case 0xfe0f:
 					// RTI
 					CSR = *_getCurrECSR();
@@ -2068,17 +2018,13 @@ CORE_STATUS coreStep(void) {
 
 				case 0xfe2f:
 					// INC [EA]
-					memoryGetData(GET_DATA_SEG, EA, 1);
-					tempData.byte = _ALU(DataRaw.byte, 1, _ALU_ADD);
-					memorySetData(GET_DATA_SEG, EA, 1, tempData);
+					memorySetData(GET_DATA_SEG, EA, 1, _ALU(memoryGetData(GET_DATA_SEG, EA, 1), 1, _ALU_ADD));
 					CycleCount = 2 + EAIncDelay;
 					break;
 
 				case 0xfe3f:
 					// DEC [EA]
-					memoryGetData(GET_DATA_SEG, EA, 1);
-					tempData.byte = _ALU(DataRaw.byte, 1, _ALU_SUB);
-					memorySetData(GET_DATA_SEG, EA, 1, tempData);
+					memorySetData(GET_DATA_SEG, EA, 1, _ALU(memoryGetData(GET_DATA_SEG, EA, 1), 1, _ALU_SUB));
 					CycleCount = 2 + EAIncDelay;
 					break;
 
@@ -2104,7 +2050,6 @@ CORE_STATUS coreStep(void) {
 					// Actually this code should call a standard interrupt implementation
 					if( PSW.field.ELevel > 1 ) {
 						// reset if ELEVEL is 2 or 3
-						coreZero();
 						coreReset();
 					}
 					else {
@@ -2112,8 +2057,7 @@ CORE_STATUS coreStep(void) {
 						ECSR2 = CSR;
 						EPSW2 = PSW;
 						PSW.field.ELevel = 2;
-						memoryGetCodeWord((SR_t)0, (PC_t)0x0004);
-						PC = CodeWord;
+						PC = memoryGetCodeWord((SR_t)0, (PC_t)0x0004);
 					}
 					CycleCount = 7 + EAIncDelay;
 					break;

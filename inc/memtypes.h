@@ -17,12 +17,6 @@ typedef enum {
 	MEMORY_UNALIGNED,
 	MEMORY_READ_ONLY
 } MEMORY_STATUS;
-typedef union {
-	uint64_t raw;
-	uint64_t qword;
-	uint32_t dword;
-	uint16_t word;
-	uint8_t byte;
-} Data_t;
+
 
 #endif
