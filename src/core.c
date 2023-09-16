@@ -211,7 +211,7 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 				PSW.field.HC = 0;
 			}
 			// higher nibble
-			if( PSW.field.C || ((retVal & 0xf0) > 0x90) ) {
+			if( PSW.field.C || ((retVal & 0xf0) > 0x90) || (retVal & 0x100) ) {
 				retVal += 0x60;
 				PSW.field.C = 1;	// carry should always be set
 			}
@@ -236,7 +236,7 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 				PSW.field.HC = 0;
 			}
 			// higher nibble
-			if( PSW.field.C || ((retVal & 0xf0) > 0x90) ) {
+			if( PSW.field.C || ((retVal & 0xf0) > 0x90) || (retVal & 0x100) ) {
 				retVal -= 0x60;
 				PSW.field.C = 1;	// carry should always be set
 			}
@@ -262,8 +262,8 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 		case _ALU_SB:
 			// set bit
 			src = 0x01 << (src & 0x07);
-			PSW.field.Z = IS_ZERO(dest & src);
-			dest |= src;
+			retVal = (dest | src) & 0xff;
+			PSW.field.Z = IS_ZERO(retVal);
 			break;
 
 		case _ALU_TB:
@@ -275,8 +275,8 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 		case _ALU_RB:
 			// reset bit
 			src = 0x01 << (src & 0x07);
-			PSW.field.Z = IS_ZERO(dest & src);
-			dest &= ~src;
+			retVal = (dest & ~src) & 0xff;
+			PSW.field.Z = IS_ZERO(retVal);
 			break;
 	}
 
@@ -1109,7 +1109,10 @@ CORE_STATUS coreStep(void) {
 			src = GR.ers[regNumSrc >> 1];
 			src = (src + memoryGetCodeWord(CSR, PC)) & 0xffff;
 			PC = (PC + 2) & 0xfffe;
-			GR.rs[regNumDest] = memoryGetData(GET_DATA_SEG, src, 1);
+			dest = memoryGetData(GET_DATA_SEG, src, 1);
+			GR.rs[regNumDest] = dest;
+			PSW.field.S = SIGN8(dest);
+			PSW.field.Z = IS_ZERO(dest);
 			CycleCount = 2 + ROMWinAccessCount + EAIncDelay;
 			break;
 
@@ -1320,7 +1323,10 @@ CORE_STATUS coreStep(void) {
 			src = GR.ers[regNumSrc >> 1];
 			src = (src + memoryGetCodeWord(CSR, PC)) & 0xffff;
 			PC = (PC + 2) & 0xfffe;
-			GR.ers[regNumDest >> 1] = memoryGetData(GET_DATA_SEG, src, 2);
+			dest = memoryGetData(GET_DATA_SEG, src, 2);
+			GR.ers[regNumDest >> 1] = dest;
+			PSW.field.S = SIGN16(dest);
+			PSW.field.Z = IS_ZERO(dest);
 			CycleCount = 3 + ROMWinAccessCount + EAIncDelay;
 			break;
 
@@ -1419,7 +1425,10 @@ CORE_STATUS coreStep(void) {
 					// L ERn, disp6[BP]
 					src = GR.ers[12 >> 1];		// src = ER12
 					src = (src + _signExtend(codeWord & 0x003f, 6)) & 0xffff;
-					GR.ers[regNumDest >> 1] = memoryGetData(GET_DATA_SEG, src, 2);
+					dest = memoryGetData(GET_DATA_SEG, src, 2);
+					GR.ers[regNumDest >> 1] = dest;
+					PSW.field.S = SIGN16(dest);
+					PSW.field.Z = IS_ZERO(dest);
 					CycleCount += ROMWinAccessCount;
 					break;
 
@@ -1427,7 +1436,10 @@ CORE_STATUS coreStep(void) {
 					// L ERn, disp6[FP]
 					src = GR.ers[14 >> 1];		// src = ER14
 					src = (src + _signExtend(codeWord & 0x003f, 6)) & 0xffff;
-					GR.ers[regNumDest >> 1] = memoryGetData(GET_DATA_SEG, src, 2);
+					dest = memoryGetData(GET_DATA_SEG, src, 2);
+					GR.ers[regNumDest >> 1] = dest;
+					PSW.field.S = SIGN16(dest);
+					PSW.field.Z = IS_ZERO(dest);
 					CycleCount += ROMWinAccessCount;
 					break;
 
@@ -1561,7 +1573,10 @@ CORE_STATUS coreStep(void) {
 					// L Rn, disp6[BP]
 					src = GR.ers[12 >> 1];		// src = ER12
 					src = (src + _signExtend(codeWord & 0x003f, 6)) & 0xffff;
-					GR.rs[regNumDest] = memoryGetData(GET_DATA_SEG, src, 1);
+					dest = memoryGetData(GET_DATA_SEG, src, 1);
+					GR.rs[regNumDest] = dest;
+					PSW.field.S = SIGN8(dest);
+					PSW.field.Z = IS_ZERO(dest);
 					CycleCount += ROMWinAccessCount;
 					break;
 
@@ -1569,7 +1584,10 @@ CORE_STATUS coreStep(void) {
 					// L Rn, disp6[FP]
 					src = GR.ers[14 >> 1];		// src = ER14
 					src = (src + _signExtend(codeWord & 0x003f, 6)) & 0xffff;
-					GR.rs[regNumDest] = memoryGetData(GET_DATA_SEG, src, 1);
+					dest = memoryGetData(GET_DATA_SEG, src, 1);
+					GR.rs[regNumDest] = dest;
+					PSW.field.S = SIGN8(dest);
+					PSW.field.Z = IS_ZERO(dest);
 					CycleCount += ROMWinAccessCount;
 					break;
 
@@ -2018,13 +2036,18 @@ CORE_STATUS coreStep(void) {
 
 				case 0xfe2f:
 					// INC [EA]
+					// Yes, OKI decided that `INC [EA]` shouldn't affect carry flag
+					dest = PSW.field.C;
 					memorySetData(GET_DATA_SEG, EA, 1, _ALU(memoryGetData(GET_DATA_SEG, EA, 1), 1, _ALU_ADD));
 					CycleCount = 2 + EAIncDelay;
 					break;
 
 				case 0xfe3f:
 					// DEC [EA]
+					// Same for `DEC [EA]`
+					dest = PSW.field.C;
 					memorySetData(GET_DATA_SEG, EA, 1, _ALU(memoryGetData(GET_DATA_SEG, EA, 1), 1, _ALU_SUB));
+					PSW.field.C = dest;
 					CycleCount = 2 + EAIncDelay;
 					break;
 
