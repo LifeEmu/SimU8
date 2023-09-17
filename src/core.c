@@ -2039,6 +2039,7 @@ CORE_STATUS coreStep(void) {
 					// Yes, OKI decided that `INC [EA]` shouldn't affect carry flag
 					dest = PSW.field.C;
 					memorySetData(GET_DATA_SEG, EA, 1, _ALU(memoryGetData(GET_DATA_SEG, EA, 1), 1, _ALU_ADD));
+					PSW.field.C = dest;
 					CycleCount = 2 + EAIncDelay;
 					break;
 
