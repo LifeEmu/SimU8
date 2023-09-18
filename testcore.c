@@ -65,14 +65,14 @@ void updateDisp() {
 
 
 int main(void) {
-	int key, isSingleStep = 1, hasBreakpoint = 0, isCommand = 0, line, offset;
+	int isSingleStep = 1, hasBreakpoint = 0, isCommand = 0, line, offset;
 	uint8_t tempByte;
 	EA_t breakPC, jumpPC, dumpAR;
 	SR_t breakCSR, jumpCSR, dumpDSR;
+	char key, keyZero;
 	// `hexBytes` contains hexadecimal representation of bytes
 	char hexBytes[(2+1)*8 +1], charBytes[8 +1];
 	hexBytes[24] = '\0'; charBytes[8] = '\0';
-//	uint16_t checksum = 0x0000, index, count;
 
 	switch( memoryInit(ROM_FILE_NAME, NULL) ) {
 		case MEMORY_ALLOCATION_FAILED:
@@ -87,65 +87,16 @@ int main(void) {
 			break;
 	}
 
-
-/*
-	// calculate checksum
-	// code segment 0
-	count = 0; index = 0;
-	do {
-//		memoryGetData(8, index++, 1);
-//		checksum -= DataRaw.byte;
-		checksum -= *(uint8_t*)(CodeMemory + index++);
-	} while( --count );
-	printf("\nCount = %04X, index = %04X.\n", count, index);
-
-	// code segment 1
-	count = 0xfffc; index = 0;
-	do {
-//		memoryGetData(1, index++, 1);
-//		checksum -= DataRaw.byte;
-		checksum -= *(uint8_t*)(CodeMemory + 0x10000 + index++);
-	} while( --count );
-
-	printf("Count = %04X, index = %04X.\nChecksum = %04X.\n", count, index, checksum);
-*/
-
-/*
-	// find out where the return value of segment 0 is bad
-	count = 0; index = 0;
-	do {
-		memoryGetData(8, index, 1);
-		if( DataRaw.byte != *(uint8_t*)(CodeMemory + index) ) {
-			printf("Data from address %04Xh: memoryGetData: %02Xh | Direct access: %02Xh.\n", index, DataRaw.byte, *(uint8_t*)(CodeMemory + index));
-			break;
-		}
-		++index;
-	} while( --count );
-*/
-
-
 	if( (VBuf = createVBuf(LCD_WIDTH, LCD_HEIGHT)) == NULL ) {
 		puts("Unable to allocate VBuf.");
 		memoryFree();
 		return -1;
 	}
 
-
 	printf("CodePointer = %p, DataPointer = %p\nWaiting for a key...\n", CodeMemory, DataMemory);
 
 	coreReset();
 	puts("input 'q' to exit.");
-
-/*
-	do {
-		coreDispRegs();
-		if( coreStep() == CORE_ILLEGAL_INSTRUCTION ) {
-			printf("!!! Illegal Instruction! !!!\nCode word at last CSR:PC(%01X:%04X) = %04X\n", CSR, PC, CodeWord);
-			coreDispRegs();
-			break;
-		}
-	} while( getchar() != 'q' );
-*/
 
 	fflush(stdin);
 	// main loop
@@ -206,13 +157,13 @@ int main(void) {
 
 		case 's':
 			// step
-			puts("\nSingle step mode (s)\nResume execution by typing 'c'.");
+			puts("\nSingle step mode (s)\nResume execution by pressing 'c'.");
 			isSingleStep = 1;
 			break;
 
 		case 'p':
 			// continue
-			puts("\nExecution resumed (p)\nType 's' to pause and step.");
+			puts("\nExecution resumed (p)\nPress 's' to pause and enter single step mode.");
 			isSingleStep = 0;
 			isCommand = 0;
 			break;
@@ -271,6 +222,20 @@ int main(void) {
 				printf("%02X%04X: %s|%s\n", dumpDSR, (dumpAR - 8) & 0xffff, hexBytes, charBytes);
 			}
 			puts("========     End     ========");
+			break;
+
+		case 'z':
+			// zero RAM
+			puts("\nZero RAM (z)\nDo you really want to clear RAM?(Y/n)");
+			keyZero = tolower(_getche());
+			putchar('\n');
+			if( keyZero == 'y' ) {
+				memset(DataMemory, 0, (size_t)0x10000 - ROM_WINDOW_SIZE);
+				puts("RAM cleared!");
+			}
+			else {
+				puts("Operation canceled.");
+			}
 			break;
 
 		default:
