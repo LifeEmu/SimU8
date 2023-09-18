@@ -262,8 +262,8 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 		case _ALU_SB:
 			// set bit
 			src = 0x01 << (src & 0x07);
+			PSW.field.Z = IS_ZERO(dest & src);
 			retVal = (dest | src) & 0xff;
-			PSW.field.Z = IS_ZERO(retVal);
 			break;
 
 		case _ALU_TB:
@@ -275,8 +275,8 @@ static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) 
 		case _ALU_RB:
 			// reset bit
 			src = 0x01 << (src & 0x07);
+			PSW.field.Z = IS_ZERO(dest & src);
 			retVal = (dest & ~src) & 0xff;
-			PSW.field.Z = IS_ZERO(retVal);
 			break;
 	}
 
@@ -477,7 +477,7 @@ CORE_STATUS coreStep(void) {
 	bool isEAInc = false;
 	bool isDSRSet = false;
 
-	uint64_t dest, src;
+	uint64_t dest = 0, src = 0;
 
 	if( IsMemoryInited == false ) {
 		retVal = CORE_MEMORY_UNINITIALIZED;
@@ -1219,8 +1219,9 @@ CORE_STATUS coreStep(void) {
 					break;
 				}
 				// SB Dbitadr
-				dest = memoryGetData(GET_DATA_SEG, (EA_t)memoryGetCodeWord(CSR, PC), 1);
+				codeWord = memoryGetCodeWord(CSR, PC);	// sorry I don't have variable to hold the address
 				PC = (PC + 2) & 0xfffe;
+				dest = memoryGetData(GET_DATA_SEG, (EA_t)codeWord, 1);
 				memorySetData(GET_DATA_SEG, codeWord, 1, _ALU(dest, src, _ALU_SB));
 				CycleCount = 2 + EAIncDelay;
 				break;
@@ -1257,8 +1258,9 @@ CORE_STATUS coreStep(void) {
 					break;
 				}
 				// RB Dbitadr
-				dest = memoryGetData(GET_DATA_SEG, (EA_t)memoryGetCodeWord(CSR, PC), 1);
+				codeWord = memoryGetCodeWord(CSR, PC);	// same as `SB Dbitadr`
 				PC = (PC + 2) & 0xfffe;
+				dest = memoryGetData(GET_DATA_SEG, (EA_t)codeWord, 1);
 				memorySetData(GET_DATA_SEG, codeWord, 1, _ALU(dest, src, _ALU_RB));
 				CycleCount = 2 + EAIncDelay;
 				break;
