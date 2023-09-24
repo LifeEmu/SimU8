@@ -64,6 +64,60 @@ void updateDisp() {
 }
 
 
+void coreDispRegs(void) {
+	int i, regValue;
+
+	if( IsMemoryInited == false )
+		return;
+
+	puts("======== Register values ========\n General registers:");
+
+	// display general registers
+	for( i = 0; i < 16; ++i ) {
+		regValue = GR.rs[i];
+		printf("\tR%-2d = %02Xh (%3d)\n", i, regValue, regValue);
+	}
+	putchar('\n');
+	// display Extended Registers
+	for( i = 0; i < 16; i += 2 ) {
+		printf("\tER%-2d = %04Xh\n", i, GR.ers[i >> 1]);
+	}
+
+	puts("\n Control registers:");
+
+	printf("\tCSR:PC = %01X:%04Xh\n", CSR, PC);
+	printf("\t\tCode words at CSR:PC: %04X", memoryGetCodeWord(CSR, PC));
+	printf(" %04X\n", memoryGetCodeWord(CSR, (PC + 2) & 0xfffe));
+
+	printf("\tSP = %04Xh\n\t\t%04Xh: ", SP, SP);
+	for( i = 0; i < 8; ++i ) {
+		printf("%02X ", memoryGetData(0, SP + i, 1));
+	}
+	printf("\n\t\t%04Xh: ", (SP + 8) & 0xffff);
+	for( i = 8; i < 16; ++i ) {
+		printf("%02X ", memoryGetData(0, SP + i, 1));
+	}
+	putchar('\n');
+	putchar('\n');
+
+	printf("\tDSR = %02Xh\n", DSR);
+	printf("\tEA = %04Xh\n", EA);
+	printf("\tPSW = %02Xh\n", PSW.raw);
+	printf("\t\tC Z S V I H ELV\n\t\t%1d %1d %1d %1d %1d %1d  %1d\n", PSW.field.C, PSW.field.Z, PSW.field.S, PSW.field.OV, PSW.field.MIE, PSW.field.HC, PSW.field.ELevel);
+
+	printf("\n\tLCSR:LR = %01X:%04Xh\n", LCSR, LR);
+	printf("\tECSR1:ELR1 = %01X:%04Xh\n", ECSR1, ELR1);
+	printf("\tECSR2:ELR2 = %01X:%04Xh\n", ECSR2, ELR2);
+	printf("\tECSR3:ELR3 = %01X:%04Xh\n", ECSR3, ELR3);
+
+	printf("\n\tEPSW1 = %02Xh\n", EPSW1.raw);
+	printf("\tEPSW2 = %02Xh\n", EPSW2.raw);
+	printf("\tEPSW3 = %02Xh\n", EPSW3.raw);
+
+	puts("========       End       ========");
+}
+
+
 int main(void) {
 	int isSingleStep = 1, hasBreakpoint = 0, isCommand = 0, line, offset;
 	uint8_t tempByte;
