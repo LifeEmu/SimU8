@@ -8,9 +8,32 @@ Now the source files and the header files are separated. To use the code in your
 
 Example: If you want to use features from "core", include `inc/core.h` in your source file, and add `src/core.c` and `src/mmu.c`(`core.c` relies on MMU features) to input files of your C compiler.
 
-Tested with gcc 3.4.5 from MinGW64, it compiles with no error.
+**Compile test result:**
+- Compiler: GCC 13.2.0 that came with w64devkit
+- Options: `-std=c99 -Wall -Os`
+- Result: 0 Warning(s), 0 error(s)
+
+## Dependencies
+I want to reduce the dependencies as much as possible, so it would be easier to port to other platforms. Here are the dependencies of each "module":
+- `mmu.c`
+	- `<stdio.h>`: File operations (including operations on `stdout`)
+	- `<string.h>`: `memset`
+	- `<stdlib.h>`: Memory management (`malloc` and `free`)
+	- `<stdint.h>`: Integer types
+	- `<stdbool.h>`: Bool values
+	- `<stddef.h>`: `size_t` type
+- `core.c`
+	- `<stdbool.h>`: Bool values
+	- `<stdint.h>`: Integer types
+	- `"/inc/mmu.h"`: U8 memory space
+- `lcd.c` (technically a peripheral)
+	- `<stdint.h>`: Integer types
+	- `void setPix(int x, int y, int c)`: You need to implement it to use the LCD "module"
+	- `void updateDisp(void)`: Same as above
 
 ## Notes
-- Current implementation of **MMU functions are inelegant & inefficient.** They return the actual data in a global variable, which is slow and confusing. I need to rewrite them at some point to return the data in registers, which should be easier to use & run faster.
+- **MMU functions** that interfaces with U8 memory **are rewritten to return data in registers.** (That didn't give a speed boost though)
+- **ALU operations are split into smaller functions** now. It used to be a big function that does different jobs based on the value of the 3rd parameter. Splitting it helps eliminating a `switch` statement and saves resources for passing a constant.
+- **`coreDispRegs` is no longer a part of the emulator core.** That helps me eliminate the dependency on `stdio.h` for `core.c`.
 - Current implementation of **MMU functions does not support watchpoints.** All the reads & writes are well-encapsulated into MMU functions, which is good on its own, but my implementation doesn't support hooking yet, which means there is no way to know where in the emulated memory space the user has accessed without checking manually everytime an MMU function is called.
 - Current implementation of **core functions are inefficient.** Despite being written in pure C, the emulator runs at around 1/10 of instructions compared with real hardware, which is unbearable. Aside from the problem with the MMU functions, the core is far from perfection. My thought is to use lookup tables of function pointers & attributes for instruction implementations, to boost the execution speed & simplify the coding.
