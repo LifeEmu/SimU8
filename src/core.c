@@ -1,7 +1,4 @@
-#include <stdio.h>
 #include <stdbool.h>
-
-
 #include "../inc/mmu.h"
 #include "../inc/core.h"
 
@@ -33,254 +30,228 @@ static int EAIncDelay = 0;
 int CycleCount;
 
 
-// Enum for types of ALU operations
-typedef enum {
-	_ALU_ADD,
-	_ALU_ADD_W,
-	_ALU_ADDC,
-	_ALU_AND,
-	_ALU_OR,
-	_ALU_XOR,
-	_ALU_CMP,
-	_ALU_CMP_W,
-	_ALU_CMPC,
-	_ALU_SUB,
-	_ALU_SUBC,
-	_ALU_SLL,
-	_ALU_SRL,
-	_ALU_SRA,
-	_ALU_DAA,
-	_ALU_DAS,
-	_ALU_NEG,
-	_ALU_SB,
-	_ALU_TB,
-	_ALU_RB
-} _ALU_OP;
-
-
-// Do ALU operations, modifies PSW
+// ALU operations, modifies PSW
 // A place to hide all the ugly code behind the scene
 // If only I could use the flags of the host CPU...
-static uint16_t _ALU(register uint16_t dest, register uint16_t src, _ALU_OP op) {
-	uint32_t retVal = 0;
-	int16_t shifter = 0;
 
-	switch( op ) {
-		case _ALU_ADD:
-			// 8-bit addition
-			dest &= 0xff;
-			src &= 0xff;
-			retVal = dest + src;
-			PSW.field.C = (retVal & 0x100)? 1 : 0;
-			retVal &= 0xff;
-			PSW.field.Z = IS_ZERO(retVal);
-			PSW.field.S = SIGN8(retVal);
-			// reference: Z80 user manual
-			PSW.field.OV = (((dest & 0x7f) + (src & 0x7f)) >> 7) ^ PSW.field.C;
-			PSW.field.HC = (((dest & 0x0f) + (src & 0x0f)) & 0x10)? 1 : 0;
-			break;
+// 8-bit addition
+static uint8_t _ALU_ADD(register uint8_t dest, register uint8_t src) {
+	uint16_t retVal = dest + src;
+	PSW.field.C = (retVal & 0x100)? 1 : 0;
+	retVal &= 0xff;
+	PSW.field.Z = IS_ZERO(retVal);
+	PSW.field.S = SIGN8(retVal);
+	// reference: Z80 user manual
+	PSW.field.OV = (((dest & 0x7f) + (src & 0x7f)) >> 7) ^ PSW.field.C;
+	PSW.field.HC = (((dest & 0x0f) + (src & 0x0f)) & 0x10)? 1 : 0;
+	return (uint8_t)retVal;
+}
 
-		case _ALU_ADD_W:
-			// 16-bit addition
-			retVal = dest + src;
-			PSW.field.C = (retVal & 0x10000)? 1 : 0;
-			retVal &= 0xffff;
-			PSW.field.Z = IS_ZERO(retVal);
-			PSW.field.S = SIGN16(retVal);
-			// reference: Z80 user manual
-			PSW.field.OV = (((dest & 0x7fff) + (src & 0x7fff)) >> 15) ^ PSW.field.C;
-			PSW.field.HC = (((dest & 0x0fff) + (src & 0x0fff)) & 0x1000)? 1 : 0;
-			break;
+// 16-bit addition
+static uint16_t _ALU_ADD_W(register uint16_t dest, register uint16_t src) {
+	uint32_t retVal = dest + src;
+	PSW.field.C = (retVal & 0x10000)? 1 : 0;
+	retVal &= 0xffff;
+	PSW.field.Z = IS_ZERO(retVal);
+	PSW.field.S = SIGN16(retVal);
+	// reference: Z80 user manual
+	PSW.field.OV = (((dest & 0x7fff) + (src & 0x7fff)) >> 15) ^ PSW.field.C;
+	PSW.field.HC = (((dest & 0x0fff) + (src & 0x0fff)) & 0x1000)? 1 : 0;
+	return (uint16_t)retVal;
+}
 
-		case _ALU_ADDC:
-			// 8-bit addition with carry
-			dest &= 0xff;
-			src &= 0xff;
-			retVal = dest + src + PSW.field.C;
-			PSW.field.C = (retVal & 0x100)? 1 : 0;
-			retVal &= 0xff;
-			PSW.field.Z = PSW.field.Z & IS_ZERO(retVal);
-			PSW.field.S = SIGN8(retVal);
-			// reference: Z80 user manual
-			PSW.field.OV = (((dest & 0x7f) + (src & 0x7f) + PSW.field.C) >> 7) ^ PSW.field.C;
-			PSW.field.HC = (((dest & 0x0f) + (src & 0x0f) + PSW.field.C) & 0x10)? 1 : 0;
-			break;
+// 8-bit addition with carry
+static uint8_t _ALU_ADDC(register uint8_t dest, register uint8_t src) {
+	uint16_t retVal = dest + src + PSW.field.C;
+	PSW.field.C = (retVal & 0x100)? 1 : 0;
+	retVal &= 0xff;
+	PSW.field.Z = PSW.field.Z & IS_ZERO(retVal);
+	PSW.field.S = SIGN8(retVal);
+	// reference: Z80 user manual
+	PSW.field.OV = (((dest & 0x7f) + (src & 0x7f) + PSW.field.C) >> 7) ^ PSW.field.C;
+	PSW.field.HC = (((dest & 0x0f) + (src & 0x0f) + PSW.field.C) & 0x10)? 1 : 0;
+	return (uint8_t)retVal;
+}
 
-		case _ALU_AND:
-			// 8-bit logical AND
-			dest &= 0xff;
-			src &= 0xff;
-			retVal = dest & src;
-			PSW.field.Z = IS_ZERO(retVal);
-			PSW.field.S = SIGN8(retVal);
-			break;
-
-		case _ALU_OR:
-			// 8-bit logical OR
-			dest &= 0xff;
-			src &= 0xff;
-			retVal = dest | src;
-			PSW.field.Z = IS_ZERO(retVal);
-			PSW.field.S = SIGN8(retVal);
-			break;
-
-		case _ALU_XOR:
-			// 8-bit logical XOR
-			dest &= 0xff;
-			src &= 0xff;
-			retVal = dest ^ src;
-			PSW.field.Z = IS_ZERO(retVal);
-			PSW.field.S = SIGN8(retVal);
-			break;
-
-		case _ALU_CMP:
-		case _ALU_SUB:
-			// 8-bit comparison & subtraction
-			dest &= 0xff;
-			src &= 0xff;
-			retVal = dest - src;
-			PSW.field.C = (retVal & 0x100)? 1 : 0;
-			retVal &= 0xff;
-			PSW.field.Z = IS_ZERO(retVal);
-			PSW.field.S = SIGN8(retVal);
-			// reference: Z80 user manual
-			PSW.field.OV = (((dest & 0x7f) - (src & 0x7f)) >> 7) ^ PSW.field.C;
-			PSW.field.HC = (((dest & 0x0f) - (src & 0x0f)) & 0x10)? 1 : 0;
-			break;
-
-		case _ALU_CMP_W:
-			// 16-bit comparison
-			retVal = dest - src;
-			PSW.field.C = (retVal & 0x10000)? 1 : 0;
-			retVal &= 0xffff;
-			PSW.field.Z = IS_ZERO(retVal);
-			PSW.field.S = SIGN16(retVal);
-			// reference: Z80 user manual
-			PSW.field.OV = (((dest & 0x7fff) - (src & 0x7fff)) >> 15) ^ PSW.field.C;
-			PSW.field.HC = (((dest & 0x0fff) - (src & 0x0fff)) & 0x10)? 1 : 0;
-			break;
-
-		case _ALU_CMPC:
-		case _ALU_SUBC:
-			// 8-bit comparison & subtraction with carry
-			dest &= 0xff;
-			src &= 0xff;
-			retVal = dest - src - PSW.field.C;
-			PSW.field.C = (retVal & 0x100)? 1 : 0;
-			retVal &= 0xff;
-			PSW.field.Z = PSW.field.Z & IS_ZERO(retVal);
-			PSW.field.S = SIGN8(retVal);
-			// reference: Z80 user manual
-			PSW.field.OV = (((dest & 0x7f) - (src & 0x7f) - PSW.field.C) >> 7) ^ PSW.field.C;
-			PSW.field.HC = (((dest & 0x0f) - (src & 0x0f) - PSW.field.C) & 0x10)? 1 : 0;
-			break;
-
-		case _ALU_SLL:
-			// logical shift left
-			retVal = dest << (src & 0x07);
-			PSW.field.C = (retVal & 0x100)? 1 : 0;
-			retVal &= 0xff;
-			break;
-
-		case _ALU_SRL:
-			// logical shift right
-			retVal = (dest << 1) >> (src & 0x07);	// leave space for carry flag
-			PSW.field.C = retVal & 0x01;
-			retVal = (retVal >> 1) & 0xff;
-			break;
-
-		case _ALU_SRA:
-			// arithmetic shift right
-			shifter = dest << 8;		// use arithmetic shift of host processor
-			shifter >>= ((src & 0x07) + 7);	// leave space for carry flag
-			PSW.field.C = shifter & 0x01;
-			retVal = (shifter >> 1) & 0xff;
-			break;
-
-		case _ALU_DAA:
-			// decimal adjustment for addition
-			// Uh gosh this is so much of a pain
-			// reference: AMD64 general purpose and system instructions
-			retVal = dest;
-			// lower nibble
-			if( PSW.field.HC || ((retVal & 0x0f) > 0x09) ) {
-				retVal += 0x06;
-				PSW.field.HC = 1;
-			}
-			else {
-				PSW.field.HC = 0;
-			}
-			// higher nibble
-			if( PSW.field.C || ((retVal & 0xf0) > 0x90) ) {
-				retVal += 0x60;
-				PSW.field.C = 1;	// carry should always be set
-			}
-			else {
-				PSW.field.C = 0;
-			}
-			PSW.field.S = SIGN8(retVal);
-			PSW.field.Z = IS_ZERO(retVal);
-			break;
-
-		case _ALU_DAS:
-			// decimal adjustment for subtraction
-			// This is even more confusing than DAA
-			// reference: AMD64 general purpose and system instructions
-			retVal = dest;
-			// lower nibble
-			if( PSW.field.HC || ((retVal & 0x0f) > 0x09) ) {
-				retVal -= 0x06;
-				PSW.field.HC = 1;
-			}
-			else {
-				PSW.field.HC = 0;
-			}
-			// higher nibble
-			if( PSW.field.C || ((retVal & 0xf0) > 0x90) ) {
-				retVal -= 0x60;
-				PSW.field.C = 1;	// carry should always be set
-			}
-			else {
-				PSW.field.C = 0;
-			}
-			// write back
-			PSW.field.S = SIGN8(retVal);
-			PSW.field.Z = IS_ZERO(retVal);
-			break;
-
-		case _ALU_NEG:
-			// 8-bit negate
-			retVal = dest & 0xff;
-			PSW.field.HC = (retVal & 0x0f)? 0 : 1;	// ~0b0000 + 1 = 0b1_0000
-			PSW.field.C = retVal? 0 : 1;			// ~0b0000_0000 + 1 = 0b1_0000_0000
-			PSW.field.OV = ((retVal & 0x7f)? 0 : 1) ^ PSW.field.C;
-			retVal = (~retVal + 1) & 0xff;
-			PSW.field.S = SIGN8(retVal);
-			PSW.field.Z = IS_ZERO(retVal);
-			break;
-
-		case _ALU_SB:
-			// set bit
-			src = 0x01 << (src & 0x07);
-			PSW.field.Z = IS_ZERO(dest & src);
-			dest |= src;
-			break;
-
-		case _ALU_TB:
-			// test bit
-			src = 0x01 << (src & 0x07);
-			PSW.field.Z = IS_ZERO(dest & src);
-			break;
-
-		case _ALU_RB:
-			// reset bit
-			src = 0x01 << (src & 0x07);
-			PSW.field.Z = IS_ZERO(dest & src);
-			dest &= ~src;
-			break;
-	}
-
+// 8-bit logical AND
+static inline uint8_t _ALU_AND(register uint8_t dest, register uint8_t src) {
+	uint8_t retVal = dest & src;
+	PSW.field.Z = IS_ZERO(retVal);
+	PSW.field.S = SIGN8(retVal);
 	return retVal;
+}
+
+// 8-bit logical OR
+static inline uint8_t _ALU_OR(register uint8_t dest, register uint8_t src) {
+	uint8_t retVal = dest | src;
+	PSW.field.Z = IS_ZERO(retVal);
+	PSW.field.S = SIGN8(retVal);
+	return retVal;
+}
+
+// 8-bit logical XOR
+static inline uint8_t _ALU_XOR(register uint8_t dest, register uint8_t src) {
+	uint8_t retVal = dest ^ src;
+	PSW.field.Z = IS_ZERO(retVal);
+	PSW.field.S = SIGN8(retVal);
+	return retVal;
+}
+
+// 16-bit comparison
+static void _ALU_CMP_W(register uint16_t dest, register uint16_t src) {
+	uint32_t retVal = dest - src;
+	PSW.field.C = (retVal & 0x10000)? 1 : 0;
+	retVal &= 0xffff;
+	PSW.field.Z = IS_ZERO(retVal);
+	PSW.field.S = SIGN16(retVal);
+	// reference: Z80 user manual
+	PSW.field.OV = (((dest & 0x7fff) - (src & 0x7fff)) >> 15) ^ PSW.field.C;
+	PSW.field.HC = (((dest & 0x0fff) - (src & 0x0fff)) & 0x10)? 1 : 0;
+}
+
+// 8-bit comparison & subtraction
+static uint8_t _ALU_SUB(register uint8_t dest, register uint8_t src) {
+	uint16_t retVal = dest - src;
+	PSW.field.C = (retVal & 0x100)? 1 : 0;
+	retVal &= 0xff;
+	PSW.field.Z = IS_ZERO(retVal);
+	PSW.field.S = SIGN8(retVal);
+	// reference: Z80 user manual
+	PSW.field.OV = (((dest & 0x7f) - (src & 0x7f)) >> 7) ^ PSW.field.C;
+	PSW.field.HC = (((dest & 0x0f) - (src & 0x0f)) & 0x10)? 1 : 0;
+	return (uint8_t)retVal;
+}
+
+#define _ALU_CMP(d, s) _ALU_SUB(d, s)
+
+
+// 8-bit comparison & subtraction with carry
+static uint8_t _ALU_SUBC(register uint8_t dest, register uint8_t src) {
+	uint16_t retVal = dest - src - PSW.field.C;
+	PSW.field.C = (retVal & 0x100)? 1 : 0;
+	retVal &= 0xff;
+	PSW.field.Z = PSW.field.Z & IS_ZERO(retVal);
+	PSW.field.S = SIGN8(retVal);
+	// reference: Z80 user manual
+	PSW.field.OV = (((dest & 0x7f) - (src & 0x7f) - PSW.field.C) >> 7) ^ PSW.field.C;
+	PSW.field.HC = (((dest & 0x0f) - (src & 0x0f) - PSW.field.C) & 0x10)? 1 : 0;
+	return (uint8_t)retVal;
+}
+
+#define _ALU_CMPC(d, s) _ALU_SUBC(d, s)
+
+// 8-bit logical left shift
+static uint8_t _ALU_SLL(register uint8_t data, register uint8_t count) {
+	uint16_t retVal = data << (count & 0x07);
+	if( count == 0 ) {
+		return data;
+	}
+	PSW.field.C = (retVal & 0x100)? 1 : 0;
+	return (uint8_t)(retVal & 0xff);
+}
+
+// 8-bit logical right shift
+static uint8_t _ALU_SRL(register uint8_t data, register uint8_t count) {
+	uint16_t retVal = (data << 1) >> (count & 0x07);	// leave space for carry flag
+	if( count == 0 ) {
+		return data;
+	}
+	PSW.field.C = retVal & 0x01;
+	return (uint8_t)((retVal >> 1) & 0xff);
+}
+
+// 8-bit arithmetic right shift
+static uint8_t _ALU_SRA(register uint8_t data, register uint8_t count) {
+	int16_t retVal = data << 8;		// use arithmetic shift of host processor
+	if( count == 0 ) {
+		return data;
+	}
+	retVal >>= ((count & 0x07) + 7);	// leave space for carry flag
+	PSW.field.C = retVal & 0x01;
+	return (uint8_t)((retVal >> 1) & 0xff);
+}
+
+// decimal adjustment for addition
+static inline uint8_t _ALU_DAA(register uint8_t byte) {
+	// Uh gosh this is so much of a pain
+	// reference: AMD64 general purpose and system instructions
+
+	// lower nibble
+	if( PSW.field.HC || ((byte & 0x0f) > 0x09) ) {
+		byte += 0x06;
+		PSW.field.HC = 1;
+	}
+	else {
+		PSW.field.HC = 0;
+	}
+	// higher nibble
+	if( PSW.field.C || ((byte & 0xf0) > 0x90) || (byte & 0x100) ) {
+		byte += 0x60;
+		PSW.field.C = 1;	// carry should always be set
+	}
+	else {
+		PSW.field.C = 0;
+	}
+	PSW.field.S = SIGN8(byte);
+	PSW.field.Z = IS_ZERO(byte);
+	return byte;
+}
+
+// decimal adjustment for subtraction
+static inline uint8_t _ALU_DAS(register uint8_t byte) {
+	// This is even more confusing than DAA
+	// reference: AMD64 general purpose and system instructions
+
+	// lower nibble
+	if( PSW.field.HC || ((byte & 0x0f) > 0x09) ) {
+		byte -= 0x06;
+		PSW.field.HC = 1;
+	}
+	else {
+		PSW.field.HC = 0;
+	}
+	// higher nibble
+	if( PSW.field.C || ((byte & 0xf0) > 0x90) || (byte & 0x100) ) {
+		byte -= 0x60;
+		PSW.field.C = 1;	// carry should always be set
+	}
+	else {
+		PSW.field.C = 0;
+	}
+	// write back
+	PSW.field.S = SIGN8(byte);
+	PSW.field.Z = IS_ZERO(byte);
+	return byte;
+}
+
+static inline uint8_t _ALU_NEG(register uint8_t byte) {
+	PSW.field.HC = (byte & 0x0f)? 1 : 0;
+	PSW.field.C = byte? 1 : 0;
+	PSW.field.OV = (byte == 0x80)? 1 : 0;		// (int8_t)0x80 == -128
+	byte = (0 - byte) & 0xff;
+	PSW.field.S = SIGN8(byte);
+	PSW.field.Z = IS_ZERO(byte);
+	return byte;
+}
+
+// set bit
+static uint8_t _ALU_SB(register uint8_t data, register uint8_t bit) {
+	bit = 0x01 << (bit & 0x07);
+	PSW.field.Z = IS_ZERO(data & bit);
+	return (data | bit);
+}
+
+// test bit
+static void _ALU_TB(register uint8_t data, register uint8_t bit) {
+	bit = 0x01 << (bit & 0x07);
+	PSW.field.Z = IS_ZERO(data & bit);
+}
+
+// reset bit
+static uint8_t _ALU_RB(register uint8_t data, register uint8_t bit) {
+	bit = 0x01 << (bit & 0x07);
+	PSW.field.Z = IS_ZERO(data & bit);
+	return (data & ~bit);
 }
 
 
@@ -411,62 +382,6 @@ CORE_STATUS coreReset(void) {
 }
 
 
-CORE_STATUS coreDispRegs(void) {
-	int i, regValue;
-
-	if( IsMemoryInited == false )
-		return CORE_MEMORY_UNINITIALIZED;
-
-	puts("======== Register values ========\n General registers:");
-
-	// display general registers
-	for( i = 0; i < 16; ++i ) {
-		regValue = GR.rs[i];
-		printf("\tR%-2d = %02Xh (%3d)\n", i, regValue, regValue);
-	}
-	putchar('\n');
-	// display Extended Registers
-	for( i = 0; i < 16; i += 2 ) {
-		printf("\tER%-2d = %04Xh\n", i, GR.ers[i >> 1]);
-	}
-
-	puts("\n Control registers:");
-
-	printf("\tCSR:PC = %01X:%04Xh\n", CSR, PC);
-	printf("\t\tCode words at CSR:PC: %04X", memoryGetCodeWord(CSR, PC));
-	printf(" %04X\n", memoryGetCodeWord(CSR, (PC + 2) & 0xfffe));
-
-	printf("\tSP = %04Xh\n\t\t%04Xh: ", SP, SP);
-	for( i = 0; i < 8; ++i ) {
-		printf("%02X ", memoryGetData(0, SP + i, 1));
-	}
-	printf("\n\t\t%04Xh: ", (SP + 8) & 0xffff);
-	for( i = 8; i < 16; ++i ) {
-		printf("%02X ", memoryGetData(0, SP + i, 1));
-	}
-	putchar('\n');
-	putchar('\n');
-
-	printf("\tDSR = %02Xh\n", DSR);
-	printf("\tEA = %04Xh\n", EA);
-	printf("\tPSW = %02Xh\n", PSW.raw);
-	printf("\t\tC Z S V I H ELV\n\t\t%1d %1d %1d %1d %1d %1d  %1d\n", PSW.field.C, PSW.field.Z, PSW.field.S, PSW.field.OV, PSW.field.MIE, PSW.field.HC, PSW.field.ELevel);
-
-	printf("\n\tLCSR:LR = %01X:%04Xh\n", LCSR, LR);
-	printf("\tECSR1:ELR1 = %01X:%04Xh\n", ECSR1, ELR1);
-	printf("\tECSR2:ELR2 = %01X:%04Xh\n", ECSR2, ELR2);
-	printf("\tECSR3:ELR3 = %01X:%04Xh\n", ECSR3, ELR3);
-
-	printf("\n\tEPSW1 = %02Xh\n", EPSW1.raw);
-	printf("\tEPSW2 = %02Xh\n", EPSW2.raw);
-	printf("\tEPSW3 = %02Xh\n", EPSW3.raw);
-
-	puts("========       End       ========");
-
-	return CORE_OK;
-}
-
-
 CORE_STATUS coreStep(void) {
 	CORE_STATUS retVal = CORE_OK;
 	CycleCount = 0;
@@ -477,7 +392,7 @@ CORE_STATUS coreStep(void) {
 	bool isEAInc = false;
 	bool isDSRSet = false;
 
-	uint64_t dest, src;
+	uint64_t dest = 0, src = 0;
 
 	if( IsMemoryInited == false ) {
 		retVal = CORE_MEMORY_UNINITIALIZED;
@@ -536,7 +451,7 @@ CORE_STATUS coreStep(void) {
 			// ADD Rn, #imm8
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
-			GR.rs[regNumDest] = _ALU(dest, immNum, _ALU_ADD);
+			GR.rs[regNumDest] = _ALU_ADD(dest, immNum);
 			break;
 
 		case 0x20:
@@ -558,7 +473,7 @@ CORE_STATUS coreStep(void) {
 			// AND Rn, #imm8
 			CycleCount = 1;
 			dest = GR.rs[(codeWord >> 8) & 0x0f];
-			GR.rs[regNumDest] = _ALU(dest, immNum, _ALU_AND);
+			GR.rs[regNumDest] = _ALU_AND(dest, immNum);
 			break;
 
 		case 0x30:
@@ -580,7 +495,7 @@ CORE_STATUS coreStep(void) {
 			// OR Rn, #imm8
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
-			GR.rs[regNumDest] = _ALU(dest, immNum, _ALU_OR);
+			GR.rs[regNumDest] = _ALU_OR(dest, immNum);
 			break;
 
 		case 0x40:
@@ -602,7 +517,7 @@ CORE_STATUS coreStep(void) {
 			// XOR Rn, #imm8
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
-			GR.rs[regNumDest] = _ALU(dest, immNum, _ALU_XOR);
+			GR.rs[regNumDest] = _ALU_XOR(dest, immNum);
 			break;
 
 		case 0x50:
@@ -624,7 +539,7 @@ CORE_STATUS coreStep(void) {
 			// CMPC Rn, #imm8
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
-			_ALU(dest, immNum, _ALU_CMPC);
+			_ALU_CMPC(dest, immNum);
 			break;
 
 		case 0x60:
@@ -646,7 +561,7 @@ CORE_STATUS coreStep(void) {
 			// ADDC Rn, #imm8
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
-			GR.rs[regNumDest] = _ALU(dest, immNum, _ALU_ADDC);
+			GR.rs[regNumDest] = _ALU_ADDC(dest, immNum);
 			break;
 
 		case 0x70:
@@ -668,7 +583,7 @@ CORE_STATUS coreStep(void) {
 			// CMP Rn, #imm8
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
-			_ALU(dest, immNum, _ALU_CMP);
+			_ALU_CMP(dest, immNum);
 			break;
 
 		case 0x80:
@@ -687,7 +602,7 @@ CORE_STATUS coreStep(void) {
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
 			src = GR.rs[regNumSrc];
-			GR.rs[regNumDest] = _ALU(dest, src, _ALU_ADD);
+			GR.rs[regNumDest] = _ALU_ADD(dest, src);
 			break;
 
 		case 0x82:
@@ -695,7 +610,7 @@ CORE_STATUS coreStep(void) {
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
 			src = GR.rs[regNumSrc];
-			GR.rs[regNumDest] = _ALU(dest, src, _ALU_AND);
+			GR.rs[regNumDest] = _ALU_AND(dest, src);
 			break;
 
 		case 0x83:
@@ -703,7 +618,7 @@ CORE_STATUS coreStep(void) {
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
 			src = GR.rs[regNumSrc];
-			GR.rs[regNumDest] = _ALU(dest, src, _ALU_OR);
+			GR.rs[regNumDest] = _ALU_OR(dest, src);
 			break;
 
 		case 0x84:
@@ -711,7 +626,7 @@ CORE_STATUS coreStep(void) {
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
 			src = GR.rs[regNumSrc];
-			GR.rs[regNumDest] = _ALU(dest, src, _ALU_XOR);
+			GR.rs[regNumDest] = _ALU_XOR(dest, src);
 			break;
 
 		case 0x85:
@@ -719,7 +634,7 @@ CORE_STATUS coreStep(void) {
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
 			src = GR.rs[regNumSrc];
-			_ALU(dest, src, _ALU_CMPC);
+			_ALU_CMPC(dest, src);
 			break;
 
 		case 0x86:
@@ -727,7 +642,7 @@ CORE_STATUS coreStep(void) {
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
 			src = GR.rs[regNumSrc];
-			GR.rs[regNumDest] = _ALU(dest, src, _ALU_ADDC);
+			GR.rs[regNumDest] = _ALU_ADDC(dest, src);
 			break;
 
 		case 0x87:
@@ -735,7 +650,7 @@ CORE_STATUS coreStep(void) {
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
 			src = GR.rs[regNumSrc];
-			_ALU(dest, src, _ALU_CMP);
+			_ALU_CMP(dest, src);
 			break;
 
 		case 0x88:
@@ -743,7 +658,7 @@ CORE_STATUS coreStep(void) {
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
 			src = GR.rs[regNumSrc];
-			GR.rs[regNumDest] = _ALU(dest, src, _ALU_SUB);
+			GR.rs[regNumDest] = _ALU_SUB(dest, src);
 			break;
 
 		case 0x89:
@@ -751,7 +666,7 @@ CORE_STATUS coreStep(void) {
 			CycleCount = 1;
 			dest = GR.rs[regNumDest];
 			src = GR.rs[regNumSrc];
-			GR.rs[regNumDest] = _ALU(dest, src, _ALU_SUBC);
+			GR.rs[regNumDest] = _ALU_SUBC(dest, src);
 			break;
 
 		case 0x8a:
@@ -759,14 +674,17 @@ CORE_STATUS coreStep(void) {
 			CycleCount = 1 + EAIncDelay;
 			dest = GR.rs[regNumDest];
 			src = GR.rs[regNumSrc];
-			GR.rs[regNumDest] = _ALU(dest, src, _ALU_SLL);
+			GR.rs[regNumDest] = _ALU_SLL(dest, src);
 			break;
 
 		case 0x8b:
 			// SLLC Rn, Rm
 			CycleCount = 1 + EAIncDelay;
-			dest = (GR.rs[regNumDest] << 8) | GR.rs[(regNumDest - 1) & 0x0f];
 			src = GR.rs[regNumSrc] & 0x07;
+			if( src == 0 ) {
+				break;
+			}
+			dest = (GR.rs[regNumDest] << 8) | GR.rs[(regNumDest - 1) & 0x0f];
 
 			dest >>= (8 - src);
 			PSW.field.C = (dest & 0x100)? 1 : 0;
@@ -780,14 +698,17 @@ CORE_STATUS coreStep(void) {
 			CycleCount = 1 + EAIncDelay;
 			dest = GR.rs[regNumDest];
 			src = GR.rs[regNumSrc];
-			GR.rs[regNumDest] = _ALU(dest, src, _ALU_SRL);
+			GR.rs[regNumDest] = _ALU_SRL(dest, src);
 			break;
 
 		case 0x8d:
 			// SRLC Rn, Rm
 			CycleCount = 1 + EAIncDelay;
-			dest = (GR.rs[(regNumDest + 1) & 0x0f] << 9) | (GR.rs[regNumDest] << 1);	// bit 0 for carry
 			src = GR.rs[regNumSrc] & 0x07;
+			if( src == 0 ) {
+				break;
+			}
+			dest = (GR.rs[(regNumDest + 1) & 0x0f] << 9) | (GR.rs[regNumDest] << 1);	// bit 0 for carry
 
 			dest >>= src;
 			PSW.field.C = dest & 0x01;
@@ -802,7 +723,7 @@ CORE_STATUS coreStep(void) {
 			CycleCount = 1 + EAIncDelay;
 			dest = GR.rs[regNumDest];
 			src = GR.rs[regNumSrc];
-			GR.rs[regNumDest] = _ALU(dest, src, _ALU_SRA);
+			GR.rs[regNumDest] = _ALU_SRA(dest, src);
 			break;
 
 		case 0x8f:
@@ -823,7 +744,7 @@ CORE_STATUS coreStep(void) {
 					// reference: AMD64 general purpose and system instructions
 					CycleCount = 1;
 					dest = GR.rs[regNumDest];
-					GR.rs[regNumDest] = _ALU(dest, 0, _ALU_DAA);
+					GR.rs[regNumDest] = _ALU_DAA(dest);
 					break;
 
 				case 0x803f:
@@ -832,14 +753,14 @@ CORE_STATUS coreStep(void) {
 					// reference: AMD64 general purpose and system instructions
 					CycleCount = 1;
 					dest = GR.rs[regNumDest];
-					GR.rs[regNumDest] = _ALU(dest, 0, _ALU_DAS);
+					GR.rs[regNumDest] = _ALU_DAS(dest);
 					break;
 
 				case 0x805f:
 					//NEG Rn
 					CycleCount = 1;
 					dest = GR.rs[regNumDest];
-					GR.rs[regNumDest] = _ALU(dest, 0, _ALU_NEG);
+					GR.rs[regNumDest] = _ALU_NEG(dest);
 					break;
 
 				default:
@@ -1109,7 +1030,10 @@ CORE_STATUS coreStep(void) {
 			src = GR.ers[regNumSrc >> 1];
 			src = (src + memoryGetCodeWord(CSR, PC)) & 0xffff;
 			PC = (PC + 2) & 0xfffe;
-			GR.rs[regNumDest] = memoryGetData(GET_DATA_SEG, src, 1);
+			dest = memoryGetData(GET_DATA_SEG, src, 1);
+			GR.rs[regNumDest] = dest;
+			PSW.field.S = SIGN8(dest);
+			PSW.field.Z = IS_ZERO(dest);
 			CycleCount = 2 + ROMWinAccessCount + EAIncDelay;
 			break;
 
@@ -1135,7 +1059,7 @@ CORE_STATUS coreStep(void) {
 			CycleCount = 1 + EAIncDelay;
 			dest = GR.rs[regNumDest];
 			src = regNumSrc;
-			GR.rs[regNumDest] = _ALU(dest, src, _ALU_SLL);
+			GR.rs[regNumDest] = _ALU_SLL(dest, src);
 			break;
 
 		case 0x9b:
@@ -1145,8 +1069,11 @@ CORE_STATUS coreStep(void) {
 			}
 			// SLLC Rn, #width
 			CycleCount = 1 + EAIncDelay;
-			dest = (GR.rs[regNumDest] << 8) | GR.rs[(regNumDest - 1) & 0x0f];
 			src = regNumSrc;
+			if( src == 0 ) {
+				break;
+			}
+			dest = (GR.rs[regNumDest] << 8) | GR.rs[(regNumDest - 1) & 0x0f];
 
 			dest >>= (8 - src);
 			PSW.field.C = (dest & 0x100)? 1 : 0;
@@ -1164,7 +1091,7 @@ CORE_STATUS coreStep(void) {
 			CycleCount = 1 + EAIncDelay;
 			dest = GR.rs[regNumDest];
 			src = regNumSrc;
-			GR.rs[regNumDest] = _ALU(dest, src, _ALU_SRL);
+			GR.rs[regNumDest] = _ALU_SRL(dest, src);
 			break;
 
 		case 0x9d:
@@ -1174,8 +1101,11 @@ CORE_STATUS coreStep(void) {
 			}
 			// SRLC Rn, #width
 			CycleCount = 1 + EAIncDelay;
-			dest = (GR.rs[(regNumDest + 1) & 0x0f] << 9) | (GR.rs[regNumDest] << 1);	// bit 0 for carry
 			src = regNumSrc;
+			if( src == 0 ) {
+				break;
+			}
+			dest = (GR.rs[(regNumDest + 1) & 0x0f] << 9) | (GR.rs[regNumDest] << 1);	// bit 0 for carry
 
 			dest >>= src;
 			PSW.field.C = dest & 0x01;
@@ -1194,7 +1124,7 @@ CORE_STATUS coreStep(void) {
 			CycleCount = 1 + EAIncDelay;
 			dest = GR.rs[regNumDest];
 			src = regNumSrc;
-			GR.rs[regNumDest] = _ALU(dest, src, _ALU_SRA);
+			GR.rs[regNumDest] = _ALU_SRA(dest, src);
 			break;
 
 		case 0x9f:
@@ -1216,14 +1146,15 @@ CORE_STATUS coreStep(void) {
 					break;
 				}
 				// SB Dbitadr
-				dest = memoryGetData(GET_DATA_SEG, (EA_t)memoryGetCodeWord(CSR, PC), 1);
+				codeWord = memoryGetCodeWord(CSR, PC);	// sorry I don't have variable to hold the address
 				PC = (PC + 2) & 0xfffe;
-				memorySetData(GET_DATA_SEG, codeWord, 1, _ALU(dest, src, _ALU_SB));
+				dest = memoryGetData(GET_DATA_SEG, (EA_t)codeWord, 1);
+				memorySetData(GET_DATA_SEG, codeWord, 1, _ALU_SB(dest, src));
 				CycleCount = 2 + EAIncDelay;
 				break;
 			}
 			// SB Rn.b
-			GR.rs[regNumDest] = _ALU(GR.rs[regNumDest], src, _ALU_SB);
+			GR.rs[regNumDest] = _ALU_SB(GR.rs[regNumDest], src);
 			CycleCount = 1;
 			break;
 
@@ -1237,12 +1168,12 @@ CORE_STATUS coreStep(void) {
 				// TB Dbitadr
 				dest = memoryGetData(GET_DATA_SEG, (EA_t)memoryGetCodeWord(CSR, PC), 1);
 				PC = (PC + 2) & 0xfffe;
-				_ALU(dest, src, _ALU_TB);
+				_ALU_TB(dest, src);
 				CycleCount = 2 + ROMWinAccessCount + EAIncDelay;
 				break;
 			}
 			// TB Rn.b
-			_ALU(GR.rs[regNumDest], src, _ALU_TB);
+			_ALU_TB(GR.rs[regNumDest], src);
 			CycleCount = 1;
 			break;
 
@@ -1254,14 +1185,15 @@ CORE_STATUS coreStep(void) {
 					break;
 				}
 				// RB Dbitadr
-				dest = memoryGetData(GET_DATA_SEG, (EA_t)memoryGetCodeWord(CSR, PC), 1);
+				codeWord = memoryGetCodeWord(CSR, PC);	// same as `SB Dbitadr`
 				PC = (PC + 2) & 0xfffe;
-				memorySetData(GET_DATA_SEG, codeWord, 1, _ALU(dest, src, _ALU_RB));
+				dest = memoryGetData(GET_DATA_SEG, (EA_t)codeWord, 1);
+				memorySetData(GET_DATA_SEG, codeWord, 1, _ALU_RB(dest, src));
 				CycleCount = 2 + EAIncDelay;
 				break;
 			}
 			// RB Rn.b
-			GR.rs[regNumDest] = _ALU(GR.rs[regNumDest], src, _ALU_RB);
+			GR.rs[regNumDest] = _ALU_RB(GR.rs[regNumDest], src);
 			CycleCount = 1;
 			break;
 
@@ -1320,7 +1252,10 @@ CORE_STATUS coreStep(void) {
 			src = GR.ers[regNumSrc >> 1];
 			src = (src + memoryGetCodeWord(CSR, PC)) & 0xffff;
 			PC = (PC + 2) & 0xfffe;
-			GR.ers[regNumDest >> 1] = memoryGetData(GET_DATA_SEG, src, 2);
+			dest = memoryGetData(GET_DATA_SEG, src, 2);
+			GR.ers[regNumDest >> 1] = dest;
+			PSW.field.S = SIGN16(dest);
+			PSW.field.Z = IS_ZERO(dest);
 			CycleCount = 3 + ROMWinAccessCount + EAIncDelay;
 			break;
 
@@ -1419,7 +1354,10 @@ CORE_STATUS coreStep(void) {
 					// L ERn, disp6[BP]
 					src = GR.ers[12 >> 1];		// src = ER12
 					src = (src + _signExtend(codeWord & 0x003f, 6)) & 0xffff;
-					GR.ers[regNumDest >> 1] = memoryGetData(GET_DATA_SEG, src, 2);
+					dest = memoryGetData(GET_DATA_SEG, src, 2);
+					GR.ers[regNumDest >> 1] = dest;
+					PSW.field.S = SIGN16(dest);
+					PSW.field.Z = IS_ZERO(dest);
 					CycleCount += ROMWinAccessCount;
 					break;
 
@@ -1427,7 +1365,10 @@ CORE_STATUS coreStep(void) {
 					// L ERn, disp6[FP]
 					src = GR.ers[14 >> 1];		// src = ER14
 					src = (src + _signExtend(codeWord & 0x003f, 6)) & 0xffff;
-					GR.ers[regNumDest >> 1] = memoryGetData(GET_DATA_SEG, src, 2);
+					dest = memoryGetData(GET_DATA_SEG, src, 2);
+					GR.ers[regNumDest >> 1] = dest;
+					PSW.field.S = SIGN16(dest);
+					PSW.field.Z = IS_ZERO(dest);
 					CycleCount += ROMWinAccessCount;
 					break;
 
@@ -1561,7 +1502,10 @@ CORE_STATUS coreStep(void) {
 					// L Rn, disp6[BP]
 					src = GR.ers[12 >> 1];		// src = ER12
 					src = (src + _signExtend(codeWord & 0x003f, 6)) & 0xffff;
-					GR.rs[regNumDest] = memoryGetData(GET_DATA_SEG, src, 1);
+					dest = memoryGetData(GET_DATA_SEG, src, 1);
+					GR.rs[regNumDest] = dest;
+					PSW.field.S = SIGN8(dest);
+					PSW.field.Z = IS_ZERO(dest);
 					CycleCount += ROMWinAccessCount;
 					break;
 
@@ -1569,7 +1513,10 @@ CORE_STATUS coreStep(void) {
 					// L Rn, disp6[FP]
 					src = GR.ers[14 >> 1];		// src = ER14
 					src = (src + _signExtend(codeWord & 0x003f, 6)) & 0xffff;
-					GR.rs[regNumDest] = memoryGetData(GET_DATA_SEG, src, 1);
+					dest = memoryGetData(GET_DATA_SEG, src, 1);
+					GR.rs[regNumDest] = dest;
+					PSW.field.S = SIGN8(dest);
+					PSW.field.Z = IS_ZERO(dest);
 					CycleCount += ROMWinAccessCount;
 					break;
 
@@ -1623,7 +1570,7 @@ CORE_STATUS coreStep(void) {
 			if( (codeWord & 0x0180) == 0x0080 ) {
 				// ADD ERn, #imm7
 				src = _signExtend(codeWord & 0x007f, 7);
-				GR.ers[regNumDest >> 1] = _ALU(GR.ers[regNumDest >> 1], src, _ALU_ADD_W);
+				GR.ers[regNumDest >> 1] = _ALU_ADD_W(GR.ers[regNumDest >> 1], src);
 				CycleCount = 2;
 				break;
 			}
@@ -1767,7 +1714,7 @@ CORE_STATUS coreStep(void) {
 			}
 			// ADD ERn, ERm
 			CycleCount = 2;
-			GR.ers[regNumDest >> 1] = _ALU(GR.ers[regNumDest >> 1], GR.ers[regNumSrc >> 1], _ALU_ADD_W);
+			GR.ers[regNumDest >> 1] = _ALU_ADD_W(GR.ers[regNumDest >> 1], GR.ers[regNumSrc >> 1]);
 			break;
 
 		case 0xf7:
@@ -1777,7 +1724,7 @@ CORE_STATUS coreStep(void) {
 			}
 			// CMP ERn, ERm
 			CycleCount = 2;
-			_ALU(GR.ers[regNumDest >> 1], GR.ers[regNumSrc >> 1], _ALU_CMP_W);
+			_ALU_CMP_W(GR.ers[regNumDest >> 1], GR.ers[regNumSrc >> 1]);
 			break;
 
 		case 0xf9:
@@ -2018,13 +1965,19 @@ CORE_STATUS coreStep(void) {
 
 				case 0xfe2f:
 					// INC [EA]
-					memorySetData(GET_DATA_SEG, EA, 1, _ALU(memoryGetData(GET_DATA_SEG, EA, 1), 1, _ALU_ADD));
+					// Yes, OKI decided that `INC [EA]` shouldn't affect carry flag
+					dest = PSW.field.C;
+					memorySetData(GET_DATA_SEG, EA, 1, _ALU_ADD(memoryGetData(GET_DATA_SEG, EA, 1), 1));
+					PSW.field.C = dest;
 					CycleCount = 2 + EAIncDelay;
 					break;
 
 				case 0xfe3f:
 					// DEC [EA]
-					memorySetData(GET_DATA_SEG, EA, 1, _ALU(memoryGetData(GET_DATA_SEG, EA, 1), 1, _ALU_SUB));
+					// Same for `DEC [EA]`
+					dest = PSW.field.C;
+					memorySetData(GET_DATA_SEG, EA, 1, _ALU_SUB(memoryGetData(GET_DATA_SEG, EA, 1), 1));
+					PSW.field.C = dest;
 					CycleCount = 2 + EAIncDelay;
 					break;
 

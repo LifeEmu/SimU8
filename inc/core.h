@@ -17,7 +17,6 @@ extern int CycleCount;
 
 CORE_STATUS coreZero(void);
 CORE_STATUS coreReset(void);
-CORE_STATUS coreDispRegs(void);
 CORE_STATUS coreStep(void);
 
 #endif

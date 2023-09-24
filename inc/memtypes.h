@@ -2,9 +2,6 @@
 #define MEMTYPES_H_INCLUDED
 
 
-#include <stdint.h>
-
-
 typedef enum {
 	MEMORY_OK,
 	MEMORY_UNINITIALIZED,
