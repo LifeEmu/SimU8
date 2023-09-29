@@ -142,37 +142,41 @@ uint64_t memoryGetData(SR_t segment, EA_t offset, size_t size) {
 		offset &= 0xfffe;	// align to word boundary
 	}
 
-	// mask segment so it resides in mirrow range
-	if( segment > DATA_MIRROW_MASK ) {
-		MemoryStatus = MEMORY_MIRROWED_BANK;
-	}
-
-	if( (segment & DATA_MIRROW_MASK) >= DATA_PAGE_COUNT ) {
-		MemoryStatus = MEMORY_UNMAPPED;
-		return 0;
-	}
-
 	offset += size;
 
-	while( true ) {
-		--offset;	// start reading from higher address towards lower address
-		if( (segment == 0) && (offset < ROM_WINDOW_SIZE) ) {
-			++ROMWinAccessCount;
-			MemoryStatus = MEMORY_ROM_WINDOW;
-		}
+	if( segment == 0 ) {
+		do {
+			retVal <<= 8;
+			--offset;
+			if( offset < ROM_WINDOW_SIZE ) {
+				// ROM window
+				++ROMWinAccessCount;
+				MemoryStatus = MEMORY_ROM_WINDOW;
+				retVal |= *(uint8_t*)(CodeMemory + offset);
+			}
+			else {
+				// RAM in rest of segment 0
+				retVal |= *(uint8_t*)(DataMemory - ROM_WINDOW_SIZE + offset);
+			}
 
-		if( (segment == 0) && (offset >= ROM_WINDOW_SIZE) ) {
-			// data region of segment 0
-			retVal |= *(uint8_t*)(DataMemory + offset - ROM_WINDOW_SIZE);
-		}
-		else {
-			// code memory
-			retVal |= *(uint8_t*)(CodeMemory + ((segment & DATA_MIRROW_MASK) << 16) + offset);
-		}
-		if( --size == 0 )
-			break;
-		retVal <<= 8;
+		} while( --size != 0 );
+
+		return retVal;
 	}
+
+	// Else it's data segment 1+
+	// Compiler PLEASE optimize this you know what I want to do
+	if( _mapToDataSeg(segment) == -1 ) {
+		// Unmapped memory
+		return 0;
+	}
+	// Else it's valid
+	segment = (uint8_t)(_mapToDataSeg(segment) & 0xff);
+
+	do {
+		retVal <<= 8;
+		retVal |= *(uint8_t*)(CodeMemory + (segment << 16) + --offset);
+	} while( --size != 0 );
 
 	return retVal;
 }
@@ -222,12 +226,6 @@ void memorySetData(SR_t segment, EA_t offset, size_t size, uint64_t data) {
 		return;
 	}
 
-/*
-	while( size-- > 0 ) {
-		*((uint8_t*)(DataMemory + (segment << 16) + offset++)) = data.byte;
-		data.raw >>= 8;
-	}
-*/
 	while( size-- > 0 ) {
 		if( (segment == 0) && (offset >= ROM_WINDOW_SIZE) ) {
 			// data region of segment 0
