@@ -215,21 +215,16 @@ void memorySetData(SR_t segment, EA_t offset, size_t size, uint64_t data) {
 		offset &= 0xfffe;	// align to word boundary
 	}
 
-	// mask segment so it resides in mirrow range
-	if( segment > DATA_MIRROW_MASK ) {
-		segment &= DATA_MIRROW_MASK;
-		MemoryStatus = MEMORY_MIRROWED_BANK;
-	}
-
-	if( segment >= DATA_PAGE_COUNT ) {
-		MemoryStatus =  MEMORY_UNMAPPED;
+	// I assume everything above data segment 0 is read-only
+	if( segment != 0 ) {
+		MemoryStatus = MEMORY_READ_ONLY;
 		return;
 	}
 
 	while( size-- > 0 ) {
-		if( (segment == 0) && (offset >= ROM_WINDOW_SIZE) ) {
+		if( offset >= ROM_WINDOW_SIZE ) {
 			// data region of segment 0
-			*(uint8_t*)(DataMemory + (segment << 16) + offset - ROM_WINDOW_SIZE) = (uint8_t)(data & 0xff);
+			*(uint8_t*)(DataMemory + offset - ROM_WINDOW_SIZE) = (uint8_t)(data & 0xff);
 		}
 		else {
 			// code memory
