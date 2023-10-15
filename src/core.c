@@ -1676,7 +1676,7 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// BL ERn
-			LR = (PC + 2) & 0xfffe;
+			LR = PC;	// Pc has been incremented and this instruction is 1 word long
 			LCSR = CSR;
 			PC = GR.ers[regNumSrc >> 1] & 0xfffe;
 			CycleCount = 2 + EAIncDelay;

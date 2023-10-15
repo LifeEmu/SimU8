@@ -20,10 +20,10 @@ I want to reduce the dependencies as much as possible, so it would be easier to 
 	- `<string.h>`: `memset`
 	- `<stdlib.h>`: Memory management (`malloc` and `free`)
 	- `<stdint.h>`: Integer types
-	- `<stdbool.h>`: Bool values
+	- `<stdbool.h>`: Boolean values
 	- `<stddef.h>`: `size_t` type
 - `core.c`
-	- `<stdbool.h>`: Bool values
+	- `<stdbool.h>`: Boolean values
 	- `<stdint.h>`: Integer types
 	- `"/inc/mmu.h"`: U8 memory space
 - `lcd.c` (technically a peripheral)
@@ -37,3 +37,11 @@ I want to reduce the dependencies as much as possible, so it would be easier to 
 - **`coreDispRegs` is no longer a part of the emulator core.** That helps me eliminate the dependency on `stdio.h` for `core.c`.
 - Current implementation of **MMU functions does not support watchpoints.** All the reads & writes are well-encapsulated into MMU functions, which is good on its own, but my implementation doesn't support hooking yet, which means there is no way to know where in the emulated memory space the user has accessed without checking manually everytime an MMU function is called.
 - Current implementation of **core functions are inefficient.** Despite being written in pure C, the emulator runs at around 1/10 of instructions compared with real hardware, which is unbearable. Aside from the problem with the MMU functions, the core is far from perfection. My thought is to use lookup tables of function pointers & attributes for instruction implementations, to boost the execution speed & simplify the coding.
+
+## Special Thanks
+- [Fraserbc](https://github.com/Fraserbc)
+	- He has been helping me understand nX-U8/100 architecture
+	- I used [his emulator(check it out!)](https://github.com/Fraserbc/u8_emu) as reference implementation
+- [gamingwithevets](https://github.com/gamingwithevets)
+	- He reported a lot of bugs
+	- He made a [graphical frontend](https://github.com/gamingwithevets/simu8-frontend) for my emulator
