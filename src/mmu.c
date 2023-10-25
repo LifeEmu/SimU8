@@ -49,7 +49,6 @@ MEMORY_STATUS memoryInit(char *CodeFileName, char *DataFileName) {
 	return MEMORY_OK;
 }
 
-
 // Saves data in *DataMemory into file
 MEMORY_STATUS memorySaveData(char *DataFileName) {
 	FILE *DataFile;
@@ -58,6 +57,21 @@ MEMORY_STATUS memorySaveData(char *DataFileName) {
 
 	fwrite(DataMemory, sizeof(uint8_t), (size_t)(0x10000 - ROM_WINDOW_SIZE), DataFile);
 	fclose(DataFile);
+
+	return MEMORY_OK;
+}
+
+// Loads data memory from a binary file
+// WARNING: This will overwrite existing file!!!
+MEMORY_STATUS memoryLoadData(char *DataFileName) {
+	FILE *DataFile;
+	if( IsMemoryInited == false )
+		return MEMORY_UNINITIALIZED;
+
+	if( (DataFile = fopen(DataFileName, "rb")) == NULL )
+		return MEMORY_LOADING_FAILED;
+
+	fread(DataMemory ,sizeof(uint8_t), (size_t)(0x10000 - ROM_WINDOW_SIZE), DataFile);
 
 	return MEMORY_OK;
 }
@@ -142,37 +156,41 @@ uint64_t memoryGetData(SR_t segment, EA_t offset, size_t size) {
 		offset &= 0xfffe;	// align to word boundary
 	}
 
-	// mask segment so it resides in mirrow range
-	if( segment > DATA_MIRROW_MASK ) {
-		MemoryStatus = MEMORY_MIRROWED_BANK;
-	}
-
-	if( (segment & DATA_MIRROW_MASK) >= DATA_PAGE_COUNT ) {
-		MemoryStatus = MEMORY_UNMAPPED;
-		return 0;
-	}
-
 	offset += size;
 
-	while( true ) {
-		--offset;	// start reading from higher address towards lower address
-		if( (segment == 0) && (offset < ROM_WINDOW_SIZE) ) {
-			++ROMWinAccessCount;
-			MemoryStatus = MEMORY_ROM_WINDOW;
-		}
+	if( segment == 0 ) {
+		do {
+			retVal <<= 8;
+			--offset;
+			if( offset < ROM_WINDOW_SIZE ) {
+				// ROM window
+				++ROMWinAccessCount;
+				MemoryStatus = MEMORY_ROM_WINDOW;
+				retVal |= *(uint8_t*)(CodeMemory + offset);
+			}
+			else {
+				// RAM in rest of segment 0
+				retVal |= *(uint8_t*)(DataMemory - ROM_WINDOW_SIZE + offset);
+			}
 
-		if( (segment == 0) && (offset >= ROM_WINDOW_SIZE) ) {
-			// data region of segment 0
-			retVal |= *(uint8_t*)(DataMemory + offset - ROM_WINDOW_SIZE);
-		}
-		else {
-			// code memory
-			retVal |= *(uint8_t*)(CodeMemory + ((segment & DATA_MIRROW_MASK) << 16) + offset);
-		}
-		if( --size == 0 )
-			break;
-		retVal <<= 8;
+		} while( --size != 0 );
+
+		return retVal;
 	}
+
+	// Else it's data segment 1+
+	// Compiler PLEASE optimize this you know what I want to do
+	if( _mapToDataSeg(segment) == -1 ) {
+		// Unmapped memory
+		return 0;
+	}
+	// Else it's valid
+	segment = (uint8_t)(_mapToDataSeg(segment) & 0xff);
+
+	do {
+		retVal <<= 8;
+		retVal |= *(uint8_t*)(CodeMemory + (segment << 16) + --offset);
+	} while( --size != 0 );
 
 	return retVal;
 }
@@ -211,27 +229,16 @@ void memorySetData(SR_t segment, EA_t offset, size_t size, uint64_t data) {
 		offset &= 0xfffe;	// align to word boundary
 	}
 
-	// mask segment so it resides in mirrow range
-	if( segment > DATA_MIRROW_MASK ) {
-		segment &= DATA_MIRROW_MASK;
-		MemoryStatus = MEMORY_MIRROWED_BANK;
-	}
-
-	if( segment >= DATA_PAGE_COUNT ) {
-		MemoryStatus =  MEMORY_UNMAPPED;
+	// I assume everything above data segment 0 is read-only
+	if( segment != 0 ) {
+		MemoryStatus = MEMORY_READ_ONLY;
 		return;
 	}
 
-/*
 	while( size-- > 0 ) {
-		*((uint8_t*)(DataMemory + (segment << 16) + offset++)) = data.byte;
-		data.raw >>= 8;
-	}
-*/
-	while( size-- > 0 ) {
-		if( (segment == 0) && (offset >= ROM_WINDOW_SIZE) ) {
+		if( offset >= ROM_WINDOW_SIZE ) {
 			// data region of segment 0
-			*(uint8_t*)(DataMemory + (segment << 16) + offset - ROM_WINDOW_SIZE) = (uint8_t)(data & 0xff);
+			*(uint8_t*)(DataMemory + offset - ROM_WINDOW_SIZE) = (uint8_t)(data & 0xff);
 		}
 		else {
 			// code memory

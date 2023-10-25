@@ -172,53 +172,46 @@ static uint8_t _ALU_SRA(register uint8_t data, register uint8_t count) {
 }
 
 // decimal adjustment for addition
-static inline uint8_t _ALU_DAA(register uint8_t byte) {
+static inline uint8_t _ALU_DAA(register uint16_t byte) {
 	// Uh gosh this is so much of a pain
 	// reference: AMD64 general purpose and system instructions
 
 	// lower nibble
 	if( PSW.field.HC || ((byte & 0x0f) > 0x09) ) {
 		byte += 0x06;
-		PSW.field.HC = 1;
+		// Set HC only when adjustment produces carry into upper nibble
+		PSW.field.HC = (((byte & 0x0f) < 0x06)? 1 : 0);
 	}
-	else {
-		PSW.field.HC = 0;
-	}
+
 	// higher nibble
 	if( PSW.field.C || ((byte & 0xf0) > 0x90) || (byte & 0x100) ) {
 		byte += 0x60;
 		PSW.field.C = 1;	// carry should always be set
 	}
-	else {
-		PSW.field.C = 0;
-	}
+
 	PSW.field.S = SIGN8(byte);
 	PSW.field.Z = IS_ZERO(byte);
 	return byte;
 }
 
 // decimal adjustment for subtraction
-static inline uint8_t _ALU_DAS(register uint8_t byte) {
+static inline uint8_t _ALU_DAS(register uint16_t byte) {
 	// This is even more confusing than DAA
 	// reference: AMD64 general purpose and system instructions
 
 	// lower nibble
 	if( PSW.field.HC || ((byte & 0x0f) > 0x09) ) {
 		byte -= 0x06;
-		PSW.field.HC = 1;
+		// Set HC only when adjustment borrows from upper nibble
+		PSW.field.HC = (((byte & 0x0f) > 0x09)? 1 : 0);
 	}
-	else {
-		PSW.field.HC = 0;
-	}
+
 	// higher nibble
 	if( PSW.field.C || ((byte & 0xf0) > 0x90) || (byte & 0x100) ) {
 		byte -= 0x60;
 		PSW.field.C = 1;	// carry should always be set
 	}
-	else {
-		PSW.field.C = 0;
-	}
-	// write back
+
 	PSW.field.S = SIGN8(byte);
 	PSW.field.Z = IS_ZERO(byte);
 	return byte;
@@ -1676,7 +1669,7 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// BL ERn
-			LR = (PC + 2) & 0xfffe;
+			LR = PC;	// Pc has been incremented and this instruction is 1 word long
 			LCSR = CSR;
 			PC = GR.ers[regNumSrc >> 1] & 0xfffe;
 			CycleCount = 2 + EAIncDelay;

@@ -4,13 +4,9 @@ An nX-U8/100 simulator written in C. This has nothing to do with CASIO's `SimU8.
 
 Not finished yet.
 - Most instructions are implemented but not all of them are tested.
-- `SWI` and `BRK` are not implemented.
+- `SWI` is not implemented.
 - All the coprocessors instructions are not implemented.
 - Interrupts are not implemented yet.
-
-The emulation code(excluding the test driver) compiles with no error and only 1 warning with `-std=c99 -Wall` using gcc 3.4.5 from MinGW64.
-
-(Compiling to 64-bit might boost the performance)
 
 ## Usage
 To use the code in your project, include the header in your source, and include corresponding source file when compiling.
@@ -40,7 +36,9 @@ Example: If you want to use features from "core", include `inc/core.h` in your s
 | `d`  | Display VRAM                            |
 | `j`  | Jump to a new address                   |
 | `m`  | Show data memory                        |
-| `z` | Zero RAM |
+| `z`  | Zero RAM                                |
+| `w`  | Write to savestate file (experimental)  |
+| `e`  | Read from savestate file (experimental) |
 
 ## Credit
 - [Fraserbc on GitHub](https://github.com/Fraserbc) for knowledge about pipeline and bug reports
