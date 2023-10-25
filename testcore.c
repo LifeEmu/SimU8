@@ -9,7 +9,7 @@
 #include "inc/lcd.h"
 
 #define ROM_FILE_NAME "rom.bin"
-#define DARK_PIXEL 'o'
+#define DARK_PIXEL 'O'
 #define LIGHT_PIXEL ' '
 
 unsigned char* VBuf = NULL;
@@ -124,6 +124,7 @@ int main(void) {
 	EA_t breakPC, jumpPC, dumpAR;
 	SR_t breakCSR, jumpCSR, dumpDSR;
 	char key, keyZero;
+	char saveFileName[80];
 	// `hexBytes` contains hexadecimal representation of bytes
 	char hexBytes[(2+1)*8 +1], charBytes[8 +1];
 	hexBytes[24] = '\0'; charBytes[8] = '\0';
@@ -290,6 +291,24 @@ int main(void) {
 			else {
 				puts("Operation canceled.");
 			}
+			break;
+
+		case 'w':
+			puts("\nWrite data memory to file...(w)\nInput filename to save:");
+			gets(saveFileName);	// I know it's unsafe blah blah
+			if( memorySaveData(saveFileName) != MEMORY_OK )
+				puts("Saving failed...");
+			else
+				puts("Saving complete!");
+			break;
+
+		case 'e':
+			puts("\nRead data memory from file...(e)\nInput savestate file name:");
+			gets(saveFileName);	// I know it's unsafe blah blah
+			if( memoryLoadData(saveFileName) != MEMORY_OK )
+				puts("Loading failed...");
+			else
+				puts("Loading complete!");
 			break;
 
 		default:
