@@ -49,7 +49,6 @@ MEMORY_STATUS memoryInit(char *CodeFileName, char *DataFileName) {
 	return MEMORY_OK;
 }
 
-
 // Saves data in *DataMemory into file
 MEMORY_STATUS memorySaveData(char *DataFileName) {
 	FILE *DataFile;
@@ -58,6 +57,21 @@ MEMORY_STATUS memorySaveData(char *DataFileName) {
 
 	fwrite(DataMemory, sizeof(uint8_t), (size_t)(0x10000 - ROM_WINDOW_SIZE), DataFile);
 	fclose(DataFile);
+
+	return MEMORY_OK;
+}
+
+// Loads data memory from a binary file
+// WARNING: This will overwrite existing file!!!
+MEMORY_STATUS memoryLoadData(char *DataFileName) {
+	FILE *DataFile;
+	if( IsMemoryInited == false )
+		return MEMORY_UNINITIALIZED;
+
+	if( (DataFile = fopen(DataFileName, "rb")) == NULL )
+		return MEMORY_LOADING_FAILED;
+
+	fread(DataMemory ,sizeof(uint8_t), (size_t)(0x10000 - ROM_WINDOW_SIZE), DataFile);
 
 	return MEMORY_OK;
 }
