@@ -180,7 +180,7 @@ static inline uint8_t _ALU_DAA(register uint16_t byte) {
 	if( PSW.field.HC || ((byte & 0x0f) > 0x09) ) {
 		byte += 0x06;
 		// Set HC only when adjustment produces carry into upper nibble
-		PSW.field.HC = (((byte & 0x0f) < 0x06)? 1 : 0);
+		PSW.field.HC = 1;
 	}
 
 	// higher nibble
@@ -190,7 +190,7 @@ static inline uint8_t _ALU_DAA(register uint16_t byte) {
 	}
 
 	PSW.field.S = SIGN8(byte);
-	PSW.field.Z = IS_ZERO(byte);
+	PSW.field.Z = IS_ZERO((uint8_t)byte);
 	return byte;
 }
 
@@ -203,7 +203,7 @@ static inline uint8_t _ALU_DAS(register uint16_t byte) {
 	if( PSW.field.HC || ((byte & 0x0f) > 0x09) ) {
 		byte -= 0x06;
 		// Set HC only when adjustment borrows from upper nibble
-		PSW.field.HC = (((byte & 0x0f) > 0x09)? 1 : 0);
+		PSW.field.HC = 1;
 	}
 
 	// higher nibble
@@ -213,7 +213,7 @@ static inline uint8_t _ALU_DAS(register uint16_t byte) {
 	}
 
 	PSW.field.S = SIGN8(byte);
-	PSW.field.Z = IS_ZERO(byte);
+	PSW.field.Z = IS_ZERO((uint8_t)byte);
 	return byte;
 }
 

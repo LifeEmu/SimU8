@@ -180,7 +180,7 @@ uint64_t memoryGetData(SR_t segment, EA_t offset, size_t size) {
 
 	// Else it's data segment 1+
 	// Compiler PLEASE optimize this you know what I want to do
-	if( _mapToDataSeg(segment) == -1 ) {
+	if( (_mapToDataSeg(segment) == -1) || ((offset > 0x8DFF) && (offset < 0xF000)) ) {	// temporary patch
 		// Unmapped memory
 		return 0;
 	}
@@ -230,7 +230,7 @@ void memorySetData(SR_t segment, EA_t offset, size_t size, uint64_t data) {
 	}
 
 	// I assume everything above data segment 0 is read-only
-	if( segment != 0 ) {
+	if( (segment != 0) || ((offset > 0x8DFF) && (offset < 0xF000)) ) {	// temporary patch to limit writes
 		MemoryStatus = MEMORY_READ_ONLY;
 		return;
 	}
