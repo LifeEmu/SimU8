@@ -159,28 +159,35 @@ uint64_t memoryGetData(SR_t segment, EA_t offset, size_t size) {
 	offset += size;
 
 	if( segment == 0 ) {
-		do {
-			retVal <<= 8;
-			--offset;
-			if( offset < ROM_WINDOW_SIZE ) {
-				// ROM window
-				++ROMWinAccessCount;
-				MemoryStatus = MEMORY_ROM_WINDOW;
-				retVal |= *(uint8_t*)(CodeMemory + offset);
-			}
-			else {
-				// RAM in rest of segment 0
-				retVal |= *(uint8_t*)(DataMemory - ROM_WINDOW_SIZE + offset);
-			}
+		if( (offset > 0x8DFF) && (offset < 0xF000) ) {
+			// unmapped memory
+			// This is just a temporary solution
+			return 0;
+		}
+		else {
+			do {
+				retVal <<= 8;
+				--offset;
+				if( offset < ROM_WINDOW_SIZE ) {
+					// ROM window
+					++ROMWinAccessCount;
+					MemoryStatus = MEMORY_ROM_WINDOW;
+					retVal |= *(uint8_t*)(CodeMemory + offset);
+				}
+				else {
+					// RAM in rest of segment 0
+					retVal |= *(uint8_t*)(DataMemory - ROM_WINDOW_SIZE + offset);
+				}
 
-		} while( --size != 0 );
+			} while( --size != 0 );
 
-		return retVal;
+			return retVal;
+		}
 	}
 
 	// Else it's data segment 1+
 	// Compiler PLEASE optimize this you know what I want to do
-	if( _mapToDataSeg(segment) == -1 ) {
+	if( (_mapToDataSeg(segment) == -1)) {
 		// Unmapped memory
 		return 0;
 	}
@@ -230,7 +237,7 @@ void memorySetData(SR_t segment, EA_t offset, size_t size, uint64_t data) {
 	}
 
 	// I assume everything above data segment 0 is read-only
-	if( segment != 0 ) {
+	if( (segment != 0)) {
 		MemoryStatus = MEMORY_READ_ONLY;
 		return;
 	}
@@ -238,7 +245,13 @@ void memorySetData(SR_t segment, EA_t offset, size_t size, uint64_t data) {
 	while( size-- > 0 ) {
 		if( offset >= ROM_WINDOW_SIZE ) {
 			// data region of segment 0
-			*(uint8_t*)(DataMemory + offset - ROM_WINDOW_SIZE) = (uint8_t)(data & 0xff);
+			if( (offset > 0x8DFF) && (offset < 0xF000) ) {
+				// temporary solution
+				MemoryStatus = MEMORY_READ_ONLY;
+			}
+			else {
+				*(uint8_t*)(DataMemory + offset - ROM_WINDOW_SIZE) = (uint8_t)(data & 0xff);
+			}
 		}
 		else {
 			// code memory

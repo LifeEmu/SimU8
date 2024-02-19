@@ -22,6 +22,8 @@ Example: If you want to use features from "core", include `inc/core.h` in your s
 - Put the binary you want to run into the root directory of this repository and rename it to `rom.bin`. (you can change the name of the file in `testcore.c`)
 - `cd` to the repository in `cmd` and run `<your compiler> testcore.c src/mmu.c src/core.c src/lcd.c <other compiler options>`.
 - Run the binary that you've just got from the compiler.
+- **There is an experimental version of `testcore.c`, that displays emulated calculator LCD using Braille characters. To use it, change the command above to** `<your compiler> `_**`BrailleDisplay.c testcore_braille.c`**_` src/mmu.c src/core.c src/lcd.c <other compiler options>`
+
 
 **Commands**:
 | Char | Function                                |
@@ -45,3 +47,4 @@ Example: If you want to use features from "core", include `inc/core.h` in your s
 - [gamingwithevets on GitHub](https://github.com/gamingwithevets) for many bug feedbacks
 - Z80 user manual and AMD architectural programmer's manual for information about flags and BCD instructions (why I put them here lol)
 - OKI/Lapis for making this little RISC core
+- Zeroko, Tari, calc84maniac and c4ooo on Cemetech that helped me figure out how to display Braille in cmd
