@@ -4,11 +4,11 @@
 
 // On segment 1 and above, code and data memory accesses access the same physical memories
 // and an assumption is made here: I assume all pages above page 0 are read-only
-#define CODE_PAGE_COUNT 2
+#define CODE_PAGE_COUNT 4
 #define DATA_PAGE_COUNT 2
 // OKI says ROM window can only be "max 32K bytes", but CWI has ROM window of 0xD000 bytes
 // Maybe CASIO asked for a modified core? I don't know.
-#define ROM_WINDOW_SIZE 0x8000
+#define ROM_WINDOW_SIZE 0xD000
 
 // mask for page mirrowing
 // If there're 3 code pages (0~3), mirrow mask should be set to 0x03
@@ -23,12 +23,12 @@
  * 6	| mirrow
  * 7	| mirrow
  */
-#define CODE_MIRROW_MASK 0x01
+#define CODE_MIRROW_MASK 0x07
 #define DATA_MIRROW_MASK 0x07
 
 
 // Define this macro to use custom map logic
-//#define CUSTOM_SEGMENT_MAP
+#define CUSTOM_SEGMENT_MAP
 
 
 // To adapt to CWI (and possibly other models) mapping Cseg0 to Dseg5, the conversion is implemented here
