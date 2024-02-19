@@ -30,8 +30,8 @@
 // Define this macro to use custom map logic
 //#define CUSTOM_SEGMENT_MAP
 
-
 // To adapt to CWI (and possibly other models) mapping Cseg0 to Dseg5, the conversion is implemented here
+
 
 #ifndef CUSTOM_SEGMENT_MAP
 // Default mapping logic
@@ -56,7 +56,7 @@ static inline int16_t _mapToDataSeg(SR_t ds) {
 // - In: Data segment number that the core is trying to access
 // - Out: Code segment number that you wish the core to see, `-1` means invalid
 // - Return the input as-is to map code segment X to data segment X
-extern inline int16_t _mapToDataSeg(SR_t ds);
+extern int16_t _mapToDataSeg(SR_t ds);
 #endif
 
 #endif
