@@ -121,24 +121,25 @@ void Braille_setPix(uint8_t x, uint8_t y, uint8_t c) {
 
 void Braille_setDisplay(uint8_t *bytes) {
 	wchar_t brailleLine[_BRAILLE_PER_LINE];
-	uint8_t line = 0, row, col, byte, offset = 0;
-	int i;
+	uint8_t line = 0, row, col, byte;
+	int i, offset = 0;
 	for( ; line < _BRAILLE_PER_COL; ++line ) {	// braille array line
 //		memset(brailleLine, 0x2800, sizeof(wchar_t) * _BRAILLE_PER_LINE);
 //		^ Mehhhh moment for `memset`, again
 		for( i = 0; i < _BRAILLE_PER_LINE; ++i ) {
 			brailleLine[i] = 0x2800;
 		}
+
 		for( row = 0; row < 3; ++row ) {	// first 3 rows in one braille line
 			for( col = 0; col < _BRAILLE_PER_LINE; col += 4 ) {	// braille from left to right
 				byte = *(bytes + offset++);
 				if( offset > ((BRAILLE_DISPLAY_WIDTH >> 3) * BRAILLE_DISPLAY_HEIGHT) )
 					goto update;
 				// unrolled loop
-				brailleLine[line * _BRAILLE_PER_LINE + col] |= (((byte & 0x80) >> 7) | ((byte & 0x40) >> 3)) << row;
-				brailleLine[line * _BRAILLE_PER_LINE + col + 1] |= (((byte & 0x20) >> 5) | ((byte & 0x10) >> 1)) << row;
-				brailleLine[line * _BRAILLE_PER_LINE + col + 2] |= (((byte & 0x08) >> 3) | ((byte & 0x04) << 1)) << row;
-				brailleLine[line * _BRAILLE_PER_LINE + col + 3] |= (((byte & 0x02) >> 1) | ((byte & 0x01) << 3)) << row;
+				brailleLine[col] |= (((byte & 0x80) >> 7) | ((byte & 0x40) >> 3)) << row;
+				brailleLine[col + 1] |= (((byte & 0x20) >> 5) | ((byte & 0x10) >> 1)) << row;
+				brailleLine[col + 2] |= (((byte & 0x08) >> 3) | ((byte & 0x04) << 1)) << row;
+				brailleLine[col + 3] |= (((byte & 0x02) >> 1) | ((byte & 0x01) << 3)) << row;
 			}
 		}
 		// last row of each line of braille
@@ -146,10 +147,10 @@ void Braille_setDisplay(uint8_t *bytes) {
 			byte = *(bytes + offset++);
 			if( offset > ((BRAILLE_DISPLAY_WIDTH >> 3) * BRAILLE_DISPLAY_HEIGHT) )
 				goto update;
-			brailleLine[line * _BRAILLE_PER_LINE + col] |= ((byte & 0x80) >> 1) | ((byte & 0x40) << 1);
-			brailleLine[line * _BRAILLE_PER_LINE + col + 1] |= ((byte & 0x20) << 1) | ((byte & 0x10) << 3);
-			brailleLine[line * _BRAILLE_PER_LINE + col + 2] |= ((byte & 0x20) << 3) | ((byte & 0x10) << 5);
-			brailleLine[line * _BRAILLE_PER_LINE + col + 3] |= ((byte & 0x20) << 5) | ((byte & 0x10) << 7);
+			brailleLine[col] |= ((byte & 0x80) >> 1) | ((byte & 0x40) << 1);
+			brailleLine[col + 1] |= ((byte & 0x20) << 1) | ((byte & 0x10) << 3);
+			brailleLine[col + 2] |= ((byte & 0x08) << 3) | ((byte & 0x04) << 5);
+			brailleLine[col + 3] |= ((byte & 0x02) << 5) | ((byte & 0x01) << 7);
 		}
 update:
 		memcpy(BScreen + _BRAILLE_PER_LINE * line, brailleLine, sizeof(wchar_t) * _BRAILLE_PER_LINE);
