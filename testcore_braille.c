@@ -9,56 +9,34 @@
 #include "inc/lcd.h"
 #include "BrailleDisplay.h"
 
-#define ROM_FILE_NAME "rom.bin"
-#define DARK_PIXEL 'O'
-#define LIGHT_PIXEL ' '
-
-unsigned char* VBuf = NULL;
+#define ROM_FILE_NAME "rom_991cnx_c_real.bin"
 
 
-unsigned char* createVBuf(int x, int y) {
+inline void createVBuf(void) {
 	Braille_createDisplay();
-	return (unsigned char*)malloc(x * y);
 }
 
-void freeVBuf(unsigned char* buf) {
+inline void freeVBuf(void) {
 	Braille_destroyDisplay();
-	free(buf);
 }
 
 
 void setPix(int x, int y, int c) {
-	if(!y)*(VBuf + y * LCD_WIDTH + x) = (c? DARK_PIXEL : LIGHT_PIXEL);
-	else Braille_setPix(x, y, c);
+	Braille_setPix(x, y, c);
 }
 
 void updateDisp() {
-	// status bar area
-/*
- * 123456781234567812345678123456781234567812345678123456781234567812345678123456781234567812345678
- * [S] [A]   M   STO  RCL    STAT  CMPLX  MAT  VCT   [D]  [R]  [G]    FIX  SCI   Math   v  ^   Disp
- */
-	fputs(*(VBuf + 3) == DARK_PIXEL? "\n[S] " : "\n    ", stdout);
-	fputs(*(VBuf + 5) == DARK_PIXEL? "[A]   " : "      ", stdout);
-	fputs(*(VBuf + 8*1 + 3) == DARK_PIXEL? "M   " : "    ", stdout);
-	fputs(*(VBuf + 8*1 + 6) == DARK_PIXEL? "STO  " : "     ", stdout);
-	fputs(*(VBuf + 8*2 + 1) == DARK_PIXEL? "RCL    " : "       ", stdout);
-	fputs(*(VBuf + 8*3 + 1) == DARK_PIXEL? "STAT  " : "      ", stdout);
-	fputs(*(VBuf + 8*4 + 0) == DARK_PIXEL? "CMPLX  " : "       ", stdout);
-	fputs(*(VBuf + 8*5 + 1) == DARK_PIXEL? "MAT  " : "     ", stdout);
-	fputs(*(VBuf + 8*5 + 6) == DARK_PIXEL? "VCT   " : "      ", stdout);
-	fputs(*(VBuf + 8*7 + 2) == DARK_PIXEL? "[D]  " : "     ", stdout);
-	fputs(*(VBuf + 8*7 + 6) == DARK_PIXEL? "[R]  " : "     ", stdout);
-	fputs(*(VBuf + 8*8 + 3) == DARK_PIXEL? "[G]    " : "       ", stdout);
-	fputs(*(VBuf + 8*8 + 7) == DARK_PIXEL? "FIX  " : "     ", stdout);
-	fputs(*(VBuf + 8*9 + 2) == DARK_PIXEL? "SCI   " : "      ", stdout);
-	fputs(*(VBuf + 8*10 + 1) == DARK_PIXEL? "Math   " : "       ", stdout);
-	fputs(*(VBuf + 8*10 + 4) == DARK_PIXEL? "v  " : "   ", stdout);
-	fputs(*(VBuf + 8*11 + 0) == DARK_PIXEL? "^   " : "    ", stdout);
-	fputs(*(VBuf + 8*11 + 3) == DARK_PIXEL? "Disp\n" : "    \n", stdout);
-
-	// dot matrix area
 	Braille_flushDisplay();
+}
+
+
+inline int16_t _mapToDataSeg(SR_t ds) {
+	ds &= CODE_MIRROW_MASK;
+	if( ds == 5 )
+		return 0;
+	if( ds < 4 )
+		return ds;
+	return -1;
 }
 
 
@@ -124,8 +102,10 @@ int main(void) {
 	char key, keyZero;
 	char saveFileName[80];
 	// `hexBytes` contains hexadecimal representation of bytes
-	char hexBytes[(2+1)*8 +1], charBytes[8 +1];
-	hexBytes[24] = '\0'; charBytes[8] = '\0';
+#define DUMP_BYTE_PER_ROW 16
+#define DUMP_ROWS 8
+	char hexBytes[(2+1)*DUMP_BYTE_PER_ROW +1], charBytes[DUMP_BYTE_PER_ROW +1];
+	hexBytes[(2+1)*DUMP_BYTE_PER_ROW] = '\0'; charBytes[DUMP_BYTE_PER_ROW] = '\0';
 
 	switch( memoryInit(ROM_FILE_NAME, NULL) ) {
 		case MEMORY_ALLOCATION_FAILED:
@@ -140,11 +120,7 @@ int main(void) {
 			break;
 	}
 
-	if( (VBuf = createVBuf(LCD_WIDTH, LCD_HEIGHT)) == NULL ) {
-		puts("Unable to allocate VBuf.");
-		memoryFree();
-		return -1;
-	}
+	createVBuf();
 
 	printf("CodePointer = %p, DataPointer = %p\nWaiting for a key...\n", CodeMemory, DataMemory);
 
@@ -247,8 +223,14 @@ int main(void) {
 			// display
 			puts("\nDisplay the LCD (d)\n----------------");
 			renderVRAM();
-			puts("Display the buffer\n----------------");
-			renderBuffer(DataMemory - ROM_WINDOW_SIZE + 0x87d0);
+			puts("Buffer 1\n----------------");
+//			renderBuffer(DataMemory - ROM_WINDOW_SIZE + 0xe3d4);
+			Braille_setDisplay(DataMemory - ROM_WINDOW_SIZE + 0xe3d4);
+			Braille_flushDisplay();
+			puts("Buffer 2\n----------------");
+//			renderBuffer(DataMemory - ROM_WINDOW_SIZE + 0xddd4);
+			Braille_setDisplay(DataMemory - ROM_WINDOW_SIZE + 0xddd4);
+			Braille_flushDisplay();
 			puts("----------------");
 			break;
 
@@ -265,14 +247,14 @@ int main(void) {
 			puts("\nShow memory... (m)\nInput an address for data memory (6 hexadecimal digits):");
 			scanf("%02X%04X", &dumpDSR, &dumpAR);
 			puts("======== Memory dump ========");
-			for( line = 0; line < 8; ++line ) {
-				for( offset = 0; offset < 8; ++offset ) {
+			for( line = 0; line < DUMP_ROWS; ++line ) {
+				for( offset = 0; offset < DUMP_BYTE_PER_ROW; ++offset ) {
 					tempByte = memoryGetData(dumpDSR, dumpAR, 1);
-					sprintf(hexBytes + 3*offset, "%02X ", tempByte);
+					sprintf(hexBytes + (1+2)*offset, "%02X ", tempByte);
 					dumpAR = (dumpAR + 1) & 0xffff;
 					charBytes[offset] = (tempByte >= 0x20 && tempByte <= 0x7f)? tempByte : '.';
 				}
-				printf("%02X%04X: %s|%s\n", dumpDSR, (dumpAR - 8) & 0xffff, hexBytes, charBytes);
+				printf("%02X%04X: %s|%s\n", dumpDSR, (dumpAR - DUMP_BYTE_PER_ROW) & 0xffff, hexBytes, charBytes);
 			}
 			puts("========     End     ========");
 			break;
@@ -316,7 +298,7 @@ int main(void) {
 	} while( key != 'q' );
 
 	memoryFree();
-	freeVBuf(VBuf);
+	freeVBuf();
 	puts("Successifully exited without crashing.");
 	return 0;
 }
