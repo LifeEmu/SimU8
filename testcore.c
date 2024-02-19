@@ -212,7 +212,7 @@ int main(void) {
 
 		case 's':
 			// step
-			puts("\nSingle step mode (s)\nResume execution by pressing 'c'.");
+			puts("\nSingle step mode (s)\nResume execution by pressing 'p'.");
 			isSingleStep = 1;
 			break;
 
