@@ -248,7 +248,9 @@ int main(void) {
 			puts("\nDisplay the LCD (d)\n----------------");
 			renderVRAM();
 			puts("Display the buffer\n----------------");
-			renderBuffer(DataMemory - ROM_WINDOW_SIZE + 0x87d0);
+			Braille_setDisplay(DataMemory - ROM_WINDOW_SIZE + 0x87d0);
+			updateDisp();
+			Braille_clearDisplay();
 			puts("----------------");
 			break;
 
