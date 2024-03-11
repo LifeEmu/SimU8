@@ -207,7 +207,7 @@ int main(void) {
 		case 'a':
 			// show addresses
 			puts("\nShow addresses (a)");
-			printf("`CodeMemory` = %p\n`DataMemory` = %p.\n");
+			printf("`CodeMemory` = %p\n`DataMemory` = %p.\n", CodeMemory, DataMemory);
 			break;
 
 		case 's':
