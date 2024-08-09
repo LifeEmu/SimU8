@@ -16,8 +16,8 @@ unsigned int ROMWinAccessCount = 0;
 
 
 // Initializes `CodeMemory` and `DataMemory`.
-MEMORY_STATUS memoryInit(stub_mmuFileID_t codeFileID, stub_mmuFileID_t dataFileID) {
-	stub_mmuInitStruct_t s = {
+MEMORY_STATUS memoryInit(stub_MMUFileID_t codeFileID, stub_MMUFileID_t dataFileID) {
+	stub_MMUInitStruct_t s = {
 		.codeMemoryID = codeFileID,
 		.dataMemoryID = dataFileID,
 		.codeMemorySize = CODE_PAGE_COUNT * 0x10000,
@@ -39,8 +39,8 @@ MEMORY_STATUS memoryInit(stub_mmuFileID_t codeFileID, stub_mmuFileID_t dataFileI
 }
 
 // Saves data in *DataMemory into file
-MEMORY_STATUS memorySaveData(stub_mmuFileID_t dataFileID) {
-	stub_mmuInitStruct_t s = {
+MEMORY_STATUS memorySaveData(stub_MMUFileID_t dataFileID) {
+	stub_MMUInitStruct_t s = {
 		.dataMemoryID = dataFileID,
 		.dataMemorySize = 0x10000 - ROM_WINDOW_SIZE
 	};
@@ -53,8 +53,8 @@ MEMORY_STATUS memorySaveData(stub_mmuFileID_t dataFileID) {
 
 // Loads data memory from a binary file
 // WARNING: This will overwrite existing file!!!
-MEMORY_STATUS memoryLoadData(stub_mmuFileID_t dataFileID) {
-	stub_mmuInitStruct_t s = {
+MEMORY_STATUS memoryLoadData(stub_MMUFileID_t dataFileID) {
+	stub_MMUInitStruct_t s = {
 		.dataMemoryID = dataFileID,
 		.dataMemorySize = 0x10000 - ROM_WINDOW_SIZE
 	};

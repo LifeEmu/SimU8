@@ -1,8 +1,8 @@
-#include <stdint.h>
-
-
 #ifndef REGTYPES_H_INCLUDED
 #define REGTYPES_H_INCLUDED
+
+
+#include <stdint.h>
 
 
 typedef uint8_t SR_t;	// CSR, DSR

@@ -6,7 +6,7 @@
 #include "../inc/mmustub.h"
 
 
-stub_mmuStatus_t stub_mmuLoadCodeMemory(const stub_mmuInitStruct_t s, const void *p) {
+stub_MMUStatus_t stub_mmuLoadCodeMemory(const stub_MMUInitStruct_t s, const void *p) {
 	FILE *f;
 	if( p == NULL )
 		return STUB_MMU_ERROR;
@@ -22,7 +22,7 @@ stub_mmuStatus_t stub_mmuLoadCodeMemory(const stub_mmuInitStruct_t s, const void
 }
 
 
-stub_mmuStatus_t stub_mmuLoadDataMemory(const stub_mmuInitStruct_t s, const void *p) {
+stub_MMUStatus_t stub_mmuLoadDataMemory(const stub_MMUInitStruct_t s, const void *p) {
 	FILE *f;
 	if( p == NULL )
 		return STUB_MMU_ERROR;
@@ -40,7 +40,7 @@ stub_mmuStatus_t stub_mmuLoadDataMemory(const stub_mmuInitStruct_t s, const void
 }
 
 
-stub_mmuStatus_t stub_mmuSaveDataMemory(const stub_mmuInitStruct_t s, const void *p) {
+stub_MMUStatus_t stub_mmuSaveDataMemory(const stub_MMUInitStruct_t s, const void *p) {
 	FILE *f;
 	if( p == NULL )
 		return STUB_MMU_ERROR;
@@ -57,7 +57,7 @@ stub_mmuStatus_t stub_mmuSaveDataMemory(const stub_mmuInitStruct_t s, const void
 }
 
 
-void* stub_mmuInitCodeMemory(const stub_mmuInitStruct_t s) {
+void* stub_mmuInitCodeMemory(const stub_MMUInitStruct_t s) {
 	void *p = malloc((size_t)s.codeMemorySize);
 
 	if( p == NULL )
@@ -72,7 +72,7 @@ void* stub_mmuInitCodeMemory(const stub_mmuInitStruct_t s) {
 }
 
 
-void* stub_mmuInitDataMemory(const stub_mmuInitStruct_t s) {
+void* stub_mmuInitDataMemory(const stub_MMUInitStruct_t s) {
 	void *p = malloc((size_t)s.dataMemorySize);
 
 	if( p == NULL )

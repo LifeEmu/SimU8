@@ -11,13 +11,6 @@
 #define SIGN64(val) (((val) >> 63) & 1)
 
 
-SR_t DSR, CSR, LCSR, ECSR1, ECSR2, ECSR3;
-PC_t PC, LR, ELR1, ELR2, ELR3;
-EA_t EA, SP;
-PSW_t PSW, EPSW1, EPSW2, EPSW3;
-GR_t GR;
-
-
 // Tracks how many steps the processor should ignore the interrupt
 static int IntMaskCycle = 0;
 // Tracks which segment the next data access would be accessing
@@ -26,6 +19,7 @@ static DATA_ACCESS_PAGE NextAccess = DATA_ACCESS_PAGE0;
 static int EAIncDelay = 0;
 
 
+CoreRegister_t CoreRegister;
 // Records how many cycles the last instruction has taken
 int CycleCount;
 
