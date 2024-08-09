@@ -1,11 +1,9 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
 
 
 #include "../inc/mmu.h"
+#include "../inc/mmustub.h"
 
 
 void *CodeMemory = NULL;
@@ -14,35 +12,26 @@ bool IsMemoryInited = false;
 // Status of last memory function
 MEMORY_STATUS MemoryStatus;
 // Tracks how many ROM window access has happened
-int ROMWinAccessCount = 0;
+unsigned int ROMWinAccessCount = 0;
 
 
 // Initializes `CodeMemory` and `DataMemory`.
-MEMORY_STATUS memoryInit(char *CodeFileName, char *DataFileName) {
-	FILE *CodeFile, *DataFile;
-	if( (CodeMemory = malloc((size_t)(CODE_PAGE_COUNT * 0x10000))) == NULL )
+MEMORY_STATUS memoryInit(stub_mmuFileID_t codeFileID, stub_mmuFileID_t dataFileID) {
+	stub_mmuInitStruct_t s = {
+		.codeMemoryID = codeFileID,
+		.dataMemoryID = dataFileID,
+		.codeMemorySize = CODE_PAGE_COUNT * 0x10000,
+		.dataMemorySize = 0x10000 - ROM_WINDOW_SIZE
+	};
+
+	if( (CodeMemory = stub_mmuInitCodeMemory(s)) == NULL ) {
 		return MEMORY_ALLOCATION_FAILED;
+	}
 
-	if( (DataMemory = malloc((size_t)(0x10000 - ROM_WINDOW_SIZE))) == NULL ) {
-		free(CodeMemory);
+	if( (DataMemory = stub_mmuInitDataMemory(s)) == NULL ) {
+		stub_mmuFreeCodeMemory(CodeMemory);
+		CodeMemory = NULL;
 		return MEMORY_ALLOCATION_FAILED;
-	}
-
-	if( (CodeFile = fopen(CodeFileName, "rb")) == NULL) {
-		free(CodeMemory);
-		free(DataMemory);
-		return MEMORY_ROM_MISSING;
-	}
-
-	fread(CodeMemory, sizeof(uint8_t), (size_t)(CODE_PAGE_COUNT * 0x10000), CodeFile);
-	fclose(CodeFile);
-
-	if( (DataFile = fopen(DataFileName, "rb")) == NULL) {
-		memset(DataMemory, 0, (size_t)0x10000 - ROM_WINDOW_SIZE);
-	}
-	else {
-		fread(DataMemory, sizeof(uint8_t), (size_t)(0x10000 - ROM_WINDOW_SIZE), DataFile);
-		fclose(DataFile);
 	}
 
 	IsMemoryInited = true;
@@ -50,28 +39,31 @@ MEMORY_STATUS memoryInit(char *CodeFileName, char *DataFileName) {
 }
 
 // Saves data in *DataMemory into file
-MEMORY_STATUS memorySaveData(char *DataFileName) {
-	FILE *DataFile;
-	if( (DataFile = fopen(DataFileName, "wb")) == NULL )
-		return MEMORY_SAVING_FAILED;
+MEMORY_STATUS memorySaveData(stub_mmuFileID_t dataFileID) {
+	stub_mmuInitStruct_t s = {
+		.dataMemoryID = dataFileID,
+		.dataMemorySize = 0x10000 - ROM_WINDOW_SIZE
+	};
 
-	fwrite(DataMemory, sizeof(uint8_t), (size_t)(0x10000 - ROM_WINDOW_SIZE), DataFile);
-	fclose(DataFile);
+	if( stub_mmuSaveDataMemory(s, DataMemory) == STUB_MMU_ERROR )
+		return MEMORY_SAVING_FAILED;
 
 	return MEMORY_OK;
 }
 
 // Loads data memory from a binary file
 // WARNING: This will overwrite existing file!!!
-MEMORY_STATUS memoryLoadData(char *DataFileName) {
-	FILE *DataFile;
+MEMORY_STATUS memoryLoadData(stub_mmuFileID_t dataFileID) {
+	stub_mmuInitStruct_t s = {
+		.dataMemoryID = dataFileID,
+		.dataMemorySize = 0x10000 - ROM_WINDOW_SIZE
+	};
+
 	if( IsMemoryInited == false )
 		return MEMORY_UNINITIALIZED;
 
-	if( (DataFile = fopen(DataFileName, "rb")) == NULL )
+	if( stub_mmuLoadDataMemory(s, DataMemory) == STUB_MMU_ERROR )
 		return MEMORY_LOADING_FAILED;
-
-	fread(DataMemory ,sizeof(uint8_t), (size_t)(0x10000 - ROM_WINDOW_SIZE), DataFile);
 
 	return MEMORY_OK;
 }
@@ -81,11 +73,8 @@ MEMORY_STATUS memoryFree(void) {
 	if( IsMemoryInited == false )
 		return MEMORY_UNINITIALIZED;
 
-	free(CodeMemory);
-	CodeMemory = NULL;
-
-	free(DataMemory);
-	DataMemory = NULL;
+	stub_mmuFreeCodeMemory(CodeMemory);
+	stub_mmuFreeDataMemory(DataMemory);
 
 	IsMemoryInited = false;
 	return MEMORY_OK;
