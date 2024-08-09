@@ -8,9 +8,12 @@
 #include "inc/core.h"
 #include "inc/lcd.h"
 
+
 #define ROM_FILE_NAME "rom.bin"
+#define CYCLE_SKIP 51200	// defines how many cycles the core go before checking for keyboard
 #define DARK_PIXEL 'O'
 #define LIGHT_PIXEL ' '
+
 
 unsigned char* VBuf = NULL;
 
@@ -154,9 +157,10 @@ int main(void) {
 	puts("input 'q' to exit.");
 
 	fflush(stdin);
+	unsigned int cycle = 0;
 	// main loop
 	do {
-		while( !_kbhit() ) {
+		while( (cycle < CYCLE_SKIP) || !_kbhit() ) {
 			if( !isCommand ) {
 				switch( coreStep() ) {
 				case CORE_ILLEGAL_INSTRUCTION:
@@ -180,6 +184,7 @@ int main(void) {
 				default:
 					break;
 				}
+				cycle += CycleCount;
 
 				// breakpoint
 				if( hasBreakpoint && (CSR == breakCSR) && (PC == breakPC)) {
@@ -194,7 +199,12 @@ int main(void) {
 					break;
 				}
 			}
+			else {
+				break;
+			}
 		}
+		printf("Cycle = %d.\n", cycle);
+		cycle = 0;
 		key = tolower(_getch());	// get char and echo
 		isCommand = 1;
 		switch( key ) {
@@ -295,6 +305,7 @@ int main(void) {
 
 		case 'w':
 			puts("\nWrite data memory to file...(w)\nInput filename to save:");
+			fflush(stdin);
 			gets(saveFileName);	// I know it's unsafe blah blah
 			if( memorySaveData(saveFileName) != MEMORY_OK )
 				puts("Saving failed...");
@@ -304,6 +315,7 @@ int main(void) {
 
 		case 'e':
 			puts("\nRead data memory from file...(e)\nInput savestate file name:");
+			fflush(stdin);
 			gets(saveFileName);	// I know it's unsafe blah blah
 			if( memoryLoadData(saveFileName) != MEMORY_OK )
 				puts("Loading failed...");
