@@ -1,15 +1,14 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-
-#include "../inc/mmu.h"
 #include "../inc/mmustub.h"
+#include "../inc/mmu.h"
 
 
 void *CodeMemory = NULL;
 void *DataMemory = NULL;
 bool IsMemoryInited = false;
-// Status of last memory function
+// Status of last memory operation
 MEMORY_STATUS MemoryStatus;
 // Tracks how many ROM window access has happened
 unsigned int ROMWinAccessCount = 0;
@@ -107,11 +106,31 @@ uint16_t memoryGetCodeWord(SR_t segment, PC_t offset) {
 	return *((uint16_t*)(CodeMemory + (segment << 16) + offset));
 }
 
+
+// Looks up `address` in `DATA_MEMORY_MAP`.
+// Returns a pointer to matching entry for `address`
+// This is an internal helper function. you don't really need to call it.
+static const DataMemoryRegion_t * lookupRegion(uint32_t address) {
+	unsigned int index;
+	const DataMemoryRegion_t *p = DATA_MEMORY_MAP;
+
+	for( index = 0; index < DATA_MEMORY_REGION_COUNT; ++index ) {
+		if( (address >= p -> start) && (address < p -> end) )
+			break;
+		++p;
+	}
+	return p;
+}
+
+
 // fetches some data from data memory
 // Unmapped memory reads 0
 // size can only be 1, 2, 4, 8
 uint64_t memoryGetData(SR_t segment, EA_t offset, size_t size) {
 	uint64_t retVal = 0;
+	uint32_t flatAddress;
+	const DataMemoryRegion_t * region;
+
 	MemoryStatus = MEMORY_OK;
 
 	ROMWinAccessCount = 0;
@@ -120,8 +139,8 @@ uint64_t memoryGetData(SR_t segment, EA_t offset, size_t size) {
 		return 0;
 	}
 
-	segment &= 0xff;	// limit segment to 0~255
-	switch( size ) {	// validate size
+	// validate size
+	switch( size ) {
 		case 0:
 		case 1:
 			// byte
@@ -140,68 +159,57 @@ uint64_t memoryGetData(SR_t segment, EA_t offset, size_t size) {
 			// qword
 			size = 8;
 	}
+
+	// align to word boundary
 	if( size > 1 ) {
 		(offset & 1)? MemoryStatus = MEMORY_UNALIGNED : 0;
-		offset &= 0xfffe;	// align to word boundary
+		offset &= 0xfffe;
 	}
 
-	offset += size;
+	flatAddress = (segment << 16) + offset;
 
-	if( segment == 0 ) {
-		if( (offset > 0x8DFF) && (offset < 0xF000) ) {
-			// unmapped memory
-			// This is just a temporary solution
-			return 0;
-		}
-		else {
-			do {
-				retVal <<= 8;
-				--offset;
-				if( offset < ROM_WINDOW_SIZE ) {
-					// ROM window
-					++ROMWinAccessCount;
-					MemoryStatus = MEMORY_ROM_WINDOW;
-					retVal |= *(uint8_t*)(CodeMemory + offset);
-				}
-				else {
-					// RAM in rest of segment 0
-					retVal |= *(uint8_t*)(DataMemory - ROM_WINDOW_SIZE + offset);
-				}
+	// lookup for the region the address belongs to
+	region = lookupRegion(flatAddress);
 
-			} while( --size != 0 );
+	if( (flatAddress += size - 1) < region -> end ) {
+		// all the accesses happen within the region
+		// so we can do only 1 lookup
+		do {
+			retVal <<= 8;
+			retVal |= (*(region -> handler))(flatAddress--, 0, false);
+		} while( --size != 0 );
 
-			return retVal;
-		}
+		return retVal;
 	}
+	else {
+		// this single access splits across different regions
+		// we do multiple lookups to ensure compatibility
+		do {
+			region = lookupRegion(flatAddress);
+			retVal <<= 8;
+			retVal |= (*(region -> handler))(flatAddress--, 0, false);
+		} while( --size != 0 );
 
-	// Else it's data segment 1+
-	// Compiler PLEASE optimize this you know what I want to do
-	if( (_mapToDataSeg(segment) == -1)) {
-		// Unmapped memory
-		return 0;
+		return retVal;
 	}
-	// Else it's valid
-	segment = (uint8_t)(_mapToDataSeg(segment) & 0xff);
-
-	do {
-		retVal <<= 8;
-		retVal |= *(uint8_t*)(CodeMemory + (segment << 16) + --offset);
-	} while( --size != 0 );
-
-	return retVal;
 }
 
 // writes some data into data memory
 // size can only be 1, 2, 4, 8
 void memorySetData(SR_t segment, EA_t offset, size_t size, uint64_t data) {
+	uint32_t flatAddress;
+	const DataMemoryRegion_t * region;
 
+	MemoryStatus = MEMORY_OK;
+
+	ROMWinAccessCount = 0;
 	if( IsMemoryInited == false ) {
 		MemoryStatus = MEMORY_UNINITIALIZED;
-		return;
+		goto exit;
 	}
 
-	segment &= 0xff;	// limit segment to 0~255
-	switch( size ) {	// validate size
+	// validate size
+	switch( size ) {
 		case 0:
 		case 1:
 			// byte
@@ -220,34 +228,37 @@ void memorySetData(SR_t segment, EA_t offset, size_t size, uint64_t data) {
 			// qword
 			size = 8;
 	}
+
+	// align to word boundary
 	if( size > 1 ) {
-		MemoryStatus = ((offset & 1)? MEMORY_UNALIGNED : MEMORY_OK);
-		offset &= 0xfffe;	// align to word boundary
+		(offset & 1)? MemoryStatus = MEMORY_UNALIGNED : 0;
+		offset &= 0xfffe;
 	}
 
-	// I assume everything above data segment 0 is read-only
-	if( (segment != 0)) {
-		MemoryStatus = MEMORY_READ_ONLY;
-		return;
-	}
+	flatAddress = (segment << 16) + offset;
 
-	while( size-- > 0 ) {
-		if( offset >= ROM_WINDOW_SIZE ) {
-			// data region of segment 0
-			if( (offset > 0x8DFF) && (offset < 0xF000) ) {
-				// temporary solution
-				MemoryStatus = MEMORY_READ_ONLY;
-			}
-			else {
-				*(uint8_t*)(DataMemory + offset - ROM_WINDOW_SIZE) = (uint8_t)(data & 0xff);
-			}
-		}
-		else {
-			// code memory
-			MemoryStatus = MEMORY_READ_ONLY;	// assume code memory is read-only
-		}
-		++offset;
+	// lookup for the region the address belongs to
+	region = lookupRegion(flatAddress);
 
-		data >>= 8;
+	if( (flatAddress + size - 1) < region -> end ) {
+		// all the accesses happen within the region
+		// so we can do only 1 lookup
+		do {
+			(*(region -> handler))(flatAddress++, data & 0xff, true);
+			data >>= 8;
+		} while( --size != 0 );
 	}
+	else {
+		// this single access splits across different regions
+		// we do multiple lookups to ensure compatibility
+		do {
+			(*(region -> handler))(flatAddress++, data & 0xff, true);
+			data >>= 8;
+			if( --size == 0 )
+				break;
+			region = lookupRegion(flatAddress);
+		} while( 1 );
+	}
+exit:
+	;
 }

@@ -13,7 +13,7 @@
 extern void *CodeMemory;
 extern void *DataMemory;
 extern bool IsMemoryInited;
-// Status of last memory function
+// Status of last memory operation
 extern MEMORY_STATUS MemoryStatus;
 // Tracks how many ROM window access has happened
 extern unsigned int ROMWinAccessCount;
