@@ -42,4 +42,9 @@ CORE_STATUS coreZero(void);
 CORE_STATUS coreReset(void);
 CORE_STATUS coreStep(void);
 
+void coreDoNMI(void);
+void coreDoMI(uint8_t index);
+void coreDoSWI(uint8_t index);
+
+
 #endif

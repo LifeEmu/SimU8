@@ -1644,7 +1644,7 @@ CORE_STATUS coreStep(void) {
 
 				case 0x0500:
 					// SWI #snum
-					retVal = CORE_UNIMPLEMENTED;
+					coreDoSWI(immNum);
 					break;
 
 				case 0x0900:
@@ -2172,4 +2172,42 @@ CORE_STATUS coreStep(void) {
 
 exit:
 	return retVal;
+}
+
+
+void coreDoNMI(void) {
+	ELR2 = (PC + 2) & 0xfffe;
+	ECSR2 = CSR;
+	EPSW2 = PSW;
+	PSW.field.ELevel = 2;
+	CSR = 0;
+	PC = memoryGetCodeWord(0, 0x0008);
+	CycleCount = 3 + EAIncDelay + IntMaskCycle;
+}
+
+void coreDoMI(uint8_t index) {
+	if( (PSW.field.ELevel <= 1) && (index < 59) ) {
+		ELR1 = (PC + 2) & 0xfffe;
+		ECSR1 = CSR;
+		EPSW1 = PSW;
+		PSW.field.ELevel = 1;
+		PSW.field.MIE = 0;
+		CSR = 0;
+		PC = memoryGetCodeWord(0, 0x000A + (index << 1));
+		CycleCount = 3 + EAIncDelay + IntMaskCycle;
+	}
+}
+
+void coreDoSWI(uint8_t index) {
+	if( index < 64 ) {
+		ELR1 = (PC + 2) & 0xfffe;
+		ECSR1 = CSR;
+		EPSW1 = PSW;
+		PSW.field.ELevel = 1;
+		PSW.field.MIE = 0;
+		CSR = 0;
+		PC = memoryGetCodeWord(0, 0x0080 + (index << 1));
+		CycleCount = 3 + EAIncDelay + IntMaskCycle;
+	}
+
 }

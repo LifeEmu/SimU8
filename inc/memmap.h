@@ -28,9 +28,9 @@ typedef struct {
 extern const DataMemoryRegion_t DATA_MEMORY_MAP[DATA_MEMORY_REGION_COUNT];
 
 
-extern uint8_t defaultHandler(uint32_t address, uint8_t data, bool isWrite);
+uint8_t defaultHandler(uint32_t address, uint8_t data, bool isWrite);
 
-// All peripherals interacts with memory via this function
+// All peripherals interact with memory via this function
 // Implement this yourself
 extern uint8_t SFRHandler(uint32_t address, uint8_t data, bool isWrite);
 
