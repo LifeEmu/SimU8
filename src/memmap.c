@@ -45,7 +45,7 @@ static uint8_t RAMHandler(uint32_t address, uint8_t data, bool isWrite) {
 }
 
 static uint8_t VRAMHandler(uint32_t address, uint8_t data, bool isWrite) {
-	if( (address & 0xF) >= 0xA ) {	// unmapped region of VRAM
+	if( (address & 0xF) >= 0xC ) {	// unmapped region of VRAM
 		if( isWrite ) {
 			MemoryStatus = MEMORY_UNMAPPED;
 		}

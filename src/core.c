@@ -10,6 +10,12 @@
 #define SIGN32(val) (((val) >> 31) & 1)
 #define SIGN64(val) (((val) >> 63) & 1)
 
+#ifdef CORE_IS_U16
+	#define setSP(val) (SP = ((val) & 0xfffe))
+#else
+	#define setSP(val) (SP = (val))
+#endif
+
 
 // Tracks how many steps the processor should ignore the interrupt
 static int IntMaskCycle = 0;
@@ -242,11 +248,23 @@ static uint8_t _ALU_RB(register uint8_t data, register uint8_t bit) {
 }
 
 
-// Pushes a value onto U8 stack
+// Pushes a value onto U8/U16 stack
 // Note that it modifies SP
 static void _pushValue(uint64_t value, uint8_t bytes) {
-	int i = 0;
 	bytes = ((bytes > 8)? 8 : bytes);
+
+#ifdef CORE_IS_U16
+	if( bytes == 1 ) {
+		SP -= 2;
+		memorySetData(0, SP, 1, value);
+	}
+	else {
+		bytes = (bytes + 1) & 0xfffe;
+		SP -= bytes;
+		memorySetData(0, SP, bytes, value);
+	}
+#else	// U8 stack
+	int i = 0;
 	if( bytes & 0x01 )
 		--SP;
 	SP -= bytes;
@@ -254,18 +272,26 @@ static void _pushValue(uint64_t value, uint8_t bytes) {
 		memorySetData(0, SP + i++, 1, value);
 		value >>= 8;
 	}
+#endif
 }
 
-// Pops a value from U8 stack
+// Pops a value from U8/U16 stack
 // Note that it modifies SP
 static uint64_t _popValue(uint8_t bytes) {
 	uint64_t retVal = 0;
+
+#ifdef CORE_IS_U16
+	bytes = ((bytes > 8)? 8 : ((bytes + 1) & 0xfffe));
+	retVal = memoryGetData(0, SP, bytes);
+	SP += bytes;
+#else	// U8 stack
 	EA_t adj = (bytes + 1) & 0xfffe;
 	bytes = ((bytes > 8)? 8 : bytes);
 	while( bytes-- > 0 ) {
 		retVal = (retVal << 8) | memoryGetData(0, SP + bytes, 1);
 	}
 	SP += adj;
+#endif
 	return retVal;
 }
 
@@ -283,31 +309,13 @@ static PSW_t* _getCurrEPSW(void) {
 }
 
 // Gets pointer to current ELR
-static PC_t* _getCurrELR(void) {
-	switch( PSW.field.ELevel ) {
-		case 1:
-			return &ELR1;
-		case 2:
-			return &ELR2;
-		case 3:
-			return &ELR3;
-		default:
-			return &LR;
-	}
+static inline PC_t* _getCurrELR(void) {
+	return &CoreRegister.LRs[PSW.field.ELevel];
 }
 
 // Gets pointer to current ECSR
-static SR_t* _getCurrECSR(void) {
-	switch( PSW.field.ELevel ) {
-		case 1:
-			return &ECSR1;
-		case 2:
-			return &ECSR2;
-		case 3:
-			return &ECSR3;
-		default:
-			return &LCSR;
-	}
+static inline SR_t* _getCurrECSR(void) {
+	return &CoreRegister.LCSRs[PSW.field.ELevel];
 }
 
 
@@ -355,7 +363,7 @@ CORE_STATUS coreReset(void) {
 	DSR = 0;
 
 	// initialize SP
-	SP = memoryGetCodeWord((SR_t)0, (PC_t)0x0000);
+	setSP(memoryGetCodeWord((SR_t)0, (PC_t)0x0000));
 
 	// initialize PC
 	PC = memoryGetCodeWord((SR_t)0, (PC_t)0x0002);
@@ -868,7 +876,11 @@ CORE_STATUS coreStep(void) {
 			}
 
 			dest = memoryGetData(GET_DATA_SEG, src, 2);
-			CycleCount += 2 + ROMWinAccessCount;
+#ifdef CORE_IS_U16
+				CycleCount += 1 + (ROMWinAccessCount + 1) / 2;
+#else
+				CycleCount += 2 + ROMWinAccessCount;
+#endif
 
 			PSW.field.S = SIGN16(dest);
 			PSW.field.Z = IS_ZERO(dest);
@@ -909,7 +921,11 @@ CORE_STATUS coreStep(void) {
 			}
 
 			memorySetData(GET_DATA_SEG, dest, 2, GR.ers[regNumDest >> 1]);
-			CycleCount += 2;
+#ifdef CORE_IS_U16
+				CycleCount += 1;
+#else
+				CycleCount += 2;
+#endif
 			break;
 
 		case 0x94:
@@ -931,7 +947,11 @@ CORE_STATUS coreStep(void) {
 			}
 
 			dest = memoryGetData(GET_DATA_SEG, src, 4);
-			CycleCount = 4 + ROMWinAccessCount;
+#ifdef CORE_IS_U16
+				CycleCount = 2 + (ROMWinAccessCount + 1) / 2;
+#else
+				CycleCount = 4 + ROMWinAccessCount;
+#endif
 
 			PSW.field.S = SIGN32(dest);
 			PSW.field.Z = IS_ZERO(dest);
@@ -957,7 +977,11 @@ CORE_STATUS coreStep(void) {
 			}
 
 			memorySetData(GET_DATA_SEG, dest, 4, GR.xrs[regNumDest >> 2]);
-			CycleCount = 4;
+#ifdef CORE_IS_U16
+				CycleCount = 2;
+#else
+				CycleCount = 4;
+#endif
 			break;
 
 		case 0x96:
@@ -979,7 +1003,11 @@ CORE_STATUS coreStep(void) {
 			}
 
 			dest = memoryGetData(GET_DATA_SEG, src, 8);
-			CycleCount = 8 + ROMWinAccessCount;
+#ifdef CORE_IS_U16
+				CycleCount = 4 + (ROMWinAccessCount + 1) / 2;
+#else
+				CycleCount = 8 + ROMWinAccessCount;
+#endif
 
 			PSW.field.S = SIGN64(dest);
 			PSW.field.Z = IS_ZERO(dest);
@@ -1005,7 +1033,11 @@ CORE_STATUS coreStep(void) {
 			}
 
 			memorySetData(GET_DATA_SEG, dest, 8, GR.qrs[regNumDest >> 3]);
-			CycleCount = 8;
+#ifdef CORE_IS_U16
+				CycleCount = 4;
+#else
+				CycleCount = 8;
+#endif
 			break;
 
 		case 0x98:
@@ -1202,7 +1234,13 @@ CORE_STATUS coreStep(void) {
 			// MOV Rn, EPSW
 			if( PSW.field.ELevel != 0 )
 				GR.rs[regNumDest] = _getCurrEPSW()->raw;
+#ifdef CORE_IS_U16
+			else
+				GR.rs[regNumDest] = 0xFF;
+			CycleCount = 1;
+#else
 			CycleCount = 2;
+#endif
 			break;
 
 		case 0xa5:
@@ -1212,7 +1250,11 @@ CORE_STATUS coreStep(void) {
 			}
 			// MOV ERn, ELR
 			GR.ers[regNumDest] = *_getCurrELR();
+#ifdef CORE_IS_U16
+			CycleCount = 1;
+#else
 			CycleCount = 3;
+#endif
 			break;
 
 		case 0xa6:
@@ -1227,7 +1269,11 @@ CORE_STATUS coreStep(void) {
 			}
 			// MOV Rn, ECSR
 			GR.rs[regNumDest] = *_getCurrECSR();
+#ifdef CORE_IS_U16
+			CycleCount = 1;
+#else
 			CycleCount = 2;
+#endif
 			break;
 
 		case 0xa8:
@@ -1263,12 +1309,16 @@ CORE_STATUS coreStep(void) {
 			if( (codeWord & 0x01f0) == 0x0010 ) {
 				// MOV ERn, SP
 				GR.ers[regNumDest >> 1] = SP;
+#ifdef CORE_IS_U16
 				CycleCount = 1;
+#else
+				CycleCount = 2;
+#endif
 				break;
 			}
 			if( (codeWord & 0x0f10) == 0x0100 ) {
 				// MOV SP, ERm
-				SP = GR.ers[regNumSrc >> 1];
+				setSP(GR.ers[regNumSrc >> 1]);
 				CycleCount = 1;
 				break;
 			}
@@ -1291,7 +1341,8 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// MOV EPSW, Rm
-			_getCurrEPSW()->raw = GR.rs[regNumSrc];
+			if( PSW.field.ELevel != 0 )
+				_getCurrEPSW()->raw = GR.rs[regNumSrc];
 			CycleCount = 2;
 			break;
 
@@ -1302,7 +1353,11 @@ CORE_STATUS coreStep(void) {
 			}
 			// MOV ELR, ERm
 			*_getCurrELR() = GR.ers[regNumDest >> 1];
+#ifdef CORE_IS_U16
+			CycleCount = 1;
+#else
 			CycleCount = 3;
+#endif
 			break;
 
 		case 0xae:
@@ -1317,7 +1372,11 @@ CORE_STATUS coreStep(void) {
 			}
 			// MOV ECSR, Rm
 			*_getCurrECSR() = GR.rs[regNumSrc] & 0x0f;
+#ifdef CORE_IS_U16
+			CycleCount = 1;
+#else
 			CycleCount = 2;
+#endif
 			break;
 
 		case 0xb0:
@@ -1551,20 +1610,28 @@ CORE_STATUS coreStep(void) {
 				GR.ers[regNumDest >> 1] = src;
 				PSW.field.Z = IS_ZERO(src);
 				PSW.field.S = SIGN16(src);
+#ifdef CORE_IS_U16
+				CycleCount = 1;
+#else
 				CycleCount = 2;
+#endif
 				break;
 			}
 			if( (codeWord & 0x0180) == 0x0080 ) {
 				// ADD ERn, #imm7
 				src = _signExtend(codeWord & 0x007f, 7);
 				GR.ers[regNumDest >> 1] = _ALU_ADD_W(GR.ers[regNumDest >> 1], src);
+#ifdef CORE_IS_U16
+				CycleCount = 1;
+#else
 				CycleCount = 2;
+#endif
 				break;
 			}
 			switch( codeWord & 0x0f00 ) {
 				case 0x0100:
 					// ADD SP, #signed8
-					SP = SP + _signExtend(immNum, 8);
+					setSP(SP + _signExtend(immNum, 8));
 					CycleCount = 2;
 					break;
 
@@ -1687,7 +1754,11 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// MOV ERn, ERm
+#ifdef CORE_IS_U16
+			CycleCount = 1;
+#else
 			CycleCount = 2;
+#endif
 			dest = GR.ers[regNumSrc >> 1];
 			PSW.field.Z = IS_ZERO(dest);
 			PSW.field.S = SIGN16(dest);
@@ -1700,7 +1771,11 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// ADD ERn, ERm
-			CycleCount = 2;
+#ifdef CORE_IS_U16
+				CycleCount = 1;
+#else
+				CycleCount = 2;
+#endif
 			GR.ers[regNumDest >> 1] = _ALU_ADD_W(GR.ers[regNumDest >> 1], GR.ers[regNumSrc >> 1]);
 			break;
 
@@ -1710,7 +1785,11 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// CMP ERn, ERm
-			CycleCount = 2;
+#ifdef CORE_IS_U16
+				CycleCount = 1;
+#else
+				CycleCount = 2;
+#endif
 			_ALU_CMP_W(GR.ers[regNumDest >> 1], GR.ers[regNumSrc >> 1]);
 			break;
 
@@ -1795,7 +1874,11 @@ CORE_STATUS coreStep(void) {
 				case 0x0000:
 					// POP Rn
 					GR.rs[regNumDest] = _popValue(1);
+#ifdef CORE_IS_U16
+					CycleCount = 1 + EAIncDelay;
+#else
 					CycleCount = 2 + EAIncDelay;
+#endif
 					break;
 
 				case 0x0010:
@@ -1805,7 +1888,11 @@ CORE_STATUS coreStep(void) {
 						break;
 					}
 					GR.ers[regNumDest >> 1] = _popValue(2);
+#ifdef CORE_IS_U16
+					CycleCount = 1 + EAIncDelay;
+#else
 					CycleCount = 2 + EAIncDelay;
+#endif
 					break;
 
 				case 0x0020:
@@ -1815,7 +1902,11 @@ CORE_STATUS coreStep(void) {
 						break;
 					}
 					GR.xrs[regNumDest >> 2] = _popValue(4);
+#ifdef CORE_IS_U16
+					CycleCount = 2 + EAIncDelay;
+#else
 					CycleCount = 4 + EAIncDelay;
+#endif
 					break;
 
 				case 0x0030:
@@ -1825,13 +1916,21 @@ CORE_STATUS coreStep(void) {
 						break;
 					}
 					GR.qrs[regNumDest >> 3] = _popValue(8);
+#ifdef CORE_IS_U16
+					CycleCount = 4 + EAIncDelay;
+#else
 					CycleCount = 8 + EAIncDelay;
+#endif
 					break;
 
 				case 0x0040:
 					// PUSH Rn
 					_pushValue(GR.rs[regNumDest], 1);
+#ifdef CORE_IS_U16
+					CycleCount = 1 + EAIncDelay;
+#else
 					CycleCount = 2 + EAIncDelay;
+#endif
 					break;
 
 				case 0x0050:
@@ -1841,7 +1940,11 @@ CORE_STATUS coreStep(void) {
 						break;
 					}
 					_pushValue(GR.ers[regNumDest >> 1], 2);
+#ifdef CORE_IS_U16
+					CycleCount = 1 + EAIncDelay;
+#else
 					CycleCount = 2 + EAIncDelay;
+#endif
 					break;
 
 				case 0x0060:
@@ -1851,7 +1954,11 @@ CORE_STATUS coreStep(void) {
 						break;
 					}
 					_pushValue(GR.xrs[regNumDest >> 2], 4);
+#ifdef CORE_IS_U16
+					CycleCount = 2 + EAIncDelay;
+#else
 					CycleCount = 4 + EAIncDelay;
+#endif
 					break;
 
 				case 0x0070:
@@ -1861,7 +1968,11 @@ CORE_STATUS coreStep(void) {
 						break;
 					}
 					_pushValue(GR.qrs[regNumDest >> 3], 8);
+#ifdef CORE_IS_U16
+					CycleCount = 4 + EAIncDelay;
+#else
 					CycleCount = 8 + EAIncDelay;
+#endif
 					break;
 
 				case 0x0080:
@@ -1870,24 +1981,40 @@ CORE_STATUS coreStep(void) {
 					if( regNumDest & 0x01 ) {
 						// EA
 						EA = _popValue(2);
+#ifdef CORE_IS_U16
+						CycleCount += 1;
+#else
 						CycleCount += 2;
+#endif
 					}
 					if( regNumDest & 0x08 ) {
 						// LR
 						LR = _popValue(2);
 						LCSR = _popValue(1) & 0x0f;
+#ifdef CORE_IS_U16
+						CycleCount += 2;
+#else
 						CycleCount += 4;
+#endif
 					}
 					if( regNumDest & 0x04 ) {
 						// PSW
 						PSW.raw = _popValue(1);
+#ifdef CORE_IS_U16
+						CycleCount += 1;
+#else
 						CycleCount += 2;
+#endif
 					}
 					if( regNumDest & 0x02 ) {
 						// PC
 						PC = _popValue(2) & 0xfffe;
 						CSR = _popValue(1) & 0x0f;
-						CycleCount += 7;
+#ifdef CORE_IS_U16
+						CycleCount += 4;
+#else
+						CycleCount += 5;
+#endif
 					}
 					if( CycleCount )
 						CycleCount = 1;		// Assume 1 cycle if no register
@@ -1902,23 +2029,39 @@ CORE_STATUS coreStep(void) {
 						// ELR
 						_pushValue(*_getCurrECSR(), 1);
 						_pushValue(*_getCurrELR(), 2);
+#ifdef CORE_IS_U16
+						CycleCount += 2;
+#else
 						CycleCount += 4;
+#endif
 					}
 					if( regNumDest & 0x04 ) {
 						// EPSW
 						_pushValue(_getCurrEPSW()->raw, 1);
+#ifdef CORE_IS_U16
+						CycleCount += 1;
+#else
 						CycleCount += 2;
+#endif
 					}
 					if( regNumDest & 0x08 ) {
 						// LR
 						_pushValue(LCSR, 1);
 						_pushValue(LR, 2);
+#ifdef CORE_IS_U16
+						CycleCount += 2;
+#else
 						CycleCount += 4;
+#endif
 					}
 					if( regNumDest & 0x01 ) {
 						// EA
 						_pushValue(EA, 2);
+#ifdef CORE_IS_U16
+						CycleCount += 1;
+#else
 						CycleCount += 2;
+#endif
 					}
 					if( CycleCount )
 						CycleCount = 1;		// Assume 1 cycle if no register

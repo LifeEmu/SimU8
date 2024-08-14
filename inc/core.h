@@ -6,6 +6,10 @@
 #include "coretypes.h"
 
 
+// Defining this makes it emulate nX-U16/100
+// differences: cycle count, SP word alignment, EPSW interacting, etc.
+//#define CORE_IS_U16
+
 // macros for compatibility
 #define DSR (CoreRegister.DSR)
 #define CSR (CoreRegister.CSR)
