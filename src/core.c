@@ -2140,6 +2140,7 @@ CORE_STATUS coreStep(void) {
 						ECSR2 = CSR;
 						EPSW2 = PSW;
 						PSW.field.ELevel = 2;
+						CSR = 0;
 						PC = memoryGetCodeWord((SR_t)0, (PC_t)0x0004);
 					}
 					CycleCount = 7 + EAIncDelay;
