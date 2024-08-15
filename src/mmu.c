@@ -1,48 +1,38 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
 
-
-#include "../inc/mmu.h"
+#include "regtypes.h"
+#include "memtypes.h"
+#include "mmustub.h"
+#include "memmap.h"
 
 
 void *CodeMemory = NULL;
 void *DataMemory = NULL;
 bool IsMemoryInited = false;
-// Status of last memory function
+// Status of last memory operation
 MEMORY_STATUS MemoryStatus;
 // Tracks how many ROM window access has happened
-int ROMWinAccessCount = 0;
+unsigned int ROMWinAccessCount = 0;
 
 
 // Initializes `CodeMemory` and `DataMemory`.
-MEMORY_STATUS memoryInit(char *CodeFileName, char *DataFileName) {
-	FILE *CodeFile, *DataFile;
-	if( (CodeMemory = malloc((size_t)(CODE_PAGE_COUNT * 0x10000))) == NULL )
+MEMORY_STATUS memoryInit(stub_MMUFileID_t codeFileID, stub_MMUFileID_t dataFileID) {
+	stub_MMUInitStruct_t s = {
+		.codeMemoryID = codeFileID,
+		.dataMemoryID = dataFileID,
+		.codeMemorySize = CODE_PAGE_COUNT * 0x10000,
+		.dataMemorySize = 0x10000 - ROM_WINDOW_SIZE
+	};
+
+	if( (CodeMemory = stub_mmuInitCodeMemory(s)) == NULL ) {
 		return MEMORY_ALLOCATION_FAILED;
+	}
 
-	if( (DataMemory = malloc((size_t)(0x10000 - ROM_WINDOW_SIZE))) == NULL ) {
-		free(CodeMemory);
+	if( (DataMemory = stub_mmuInitDataMemory(s)) == NULL ) {
+		stub_mmuFreeCodeMemory(CodeMemory);
+		CodeMemory = NULL;
 		return MEMORY_ALLOCATION_FAILED;
-	}
-
-	if( (CodeFile = fopen(CodeFileName, "rb")) == NULL) {
-		free(CodeMemory);
-		free(DataMemory);
-		return MEMORY_ROM_MISSING;
-	}
-
-	fread(CodeMemory, sizeof(uint8_t), (size_t)(CODE_PAGE_COUNT * 0x10000), CodeFile);
-	fclose(CodeFile);
-
-	if( (DataFile = fopen(DataFileName, "rb")) == NULL) {
-		memset(DataMemory, 0, (size_t)0x10000 - ROM_WINDOW_SIZE);
-	}
-	else {
-		fread(DataMemory, sizeof(uint8_t), (size_t)(0x10000 - ROM_WINDOW_SIZE), DataFile);
-		fclose(DataFile);
 	}
 
 	IsMemoryInited = true;
@@ -50,28 +40,31 @@ MEMORY_STATUS memoryInit(char *CodeFileName, char *DataFileName) {
 }
 
 // Saves data in *DataMemory into file
-MEMORY_STATUS memorySaveData(char *DataFileName) {
-	FILE *DataFile;
-	if( (DataFile = fopen(DataFileName, "wb")) == NULL )
-		return MEMORY_SAVING_FAILED;
+MEMORY_STATUS memorySaveData(stub_MMUFileID_t dataFileID) {
+	stub_MMUInitStruct_t s = {
+		.dataMemoryID = dataFileID,
+		.dataMemorySize = 0x10000 - ROM_WINDOW_SIZE
+	};
 
-	fwrite(DataMemory, sizeof(uint8_t), (size_t)(0x10000 - ROM_WINDOW_SIZE), DataFile);
-	fclose(DataFile);
+	if( stub_mmuSaveDataMemory(s, DataMemory) == STUB_MMU_ERROR )
+		return MEMORY_SAVING_FAILED;
 
 	return MEMORY_OK;
 }
 
 // Loads data memory from a binary file
 // WARNING: This will overwrite existing file!!!
-MEMORY_STATUS memoryLoadData(char *DataFileName) {
-	FILE *DataFile;
+MEMORY_STATUS memoryLoadData(stub_MMUFileID_t dataFileID) {
+	stub_MMUInitStruct_t s = {
+		.dataMemoryID = dataFileID,
+		.dataMemorySize = 0x10000 - ROM_WINDOW_SIZE
+	};
+
 	if( IsMemoryInited == false )
 		return MEMORY_UNINITIALIZED;
 
-	if( (DataFile = fopen(DataFileName, "rb")) == NULL )
+	if( stub_mmuLoadDataMemory(s, DataMemory) == STUB_MMU_ERROR )
 		return MEMORY_LOADING_FAILED;
-
-	fread(DataMemory ,sizeof(uint8_t), (size_t)(0x10000 - ROM_WINDOW_SIZE), DataFile);
 
 	return MEMORY_OK;
 }
@@ -81,11 +74,8 @@ MEMORY_STATUS memoryFree(void) {
 	if( IsMemoryInited == false )
 		return MEMORY_UNINITIALIZED;
 
-	free(CodeMemory);
-	CodeMemory = NULL;
-
-	free(DataMemory);
-	DataMemory = NULL;
+	stub_mmuFreeCodeMemory(CodeMemory);
+	stub_mmuFreeDataMemory(DataMemory);
 
 	IsMemoryInited = false;
 	return MEMORY_OK;
@@ -118,11 +108,31 @@ uint16_t memoryGetCodeWord(SR_t segment, PC_t offset) {
 	return *((uint16_t*)(CodeMemory + (segment << 16) + offset));
 }
 
+
+// Looks up `address` in `DATA_MEMORY_MAP`.
+// Returns a pointer to matching entry for `address`
+// This is an internal helper function. you don't really need to call it.
+static const DataMemoryRegion_t * lookupRegion(uint32_t address) {
+	unsigned int index;
+	const DataMemoryRegion_t *p = DATA_MEMORY_MAP;
+
+	for( index = 0; index < DATA_MEMORY_REGION_COUNT; ++index ) {
+		if( (address >= p -> start) && (address < p -> end) )
+			break;
+		++p;
+	}
+	return p;
+}
+
+
 // fetches some data from data memory
 // Unmapped memory reads 0
 // size can only be 1, 2, 4, 8
 uint64_t memoryGetData(SR_t segment, EA_t offset, size_t size) {
 	uint64_t retVal = 0;
+	uint32_t flatAddress;
+	const DataMemoryRegion_t * region;
+
 	MemoryStatus = MEMORY_OK;
 
 	ROMWinAccessCount = 0;
@@ -131,8 +141,8 @@ uint64_t memoryGetData(SR_t segment, EA_t offset, size_t size) {
 		return 0;
 	}
 
-	segment &= 0xff;	// limit segment to 0~255
-	switch( size ) {	// validate size
+	// validate size
+	switch( size ) {
 		case 0:
 		case 1:
 			// byte
@@ -151,68 +161,57 @@ uint64_t memoryGetData(SR_t segment, EA_t offset, size_t size) {
 			// qword
 			size = 8;
 	}
+
+	// align to word boundary
 	if( size > 1 ) {
 		(offset & 1)? MemoryStatus = MEMORY_UNALIGNED : 0;
-		offset &= 0xfffe;	// align to word boundary
+		offset &= 0xfffe;
 	}
 
-	offset += size;
+	flatAddress = (segment << 16) + offset;
 
-	if( segment == 0 ) {
-		if( (offset > 0x8DFF) && (offset < 0xF000) ) {
-			// unmapped memory
-			// This is just a temporary solution
-			return 0;
-		}
-		else {
-			do {
-				retVal <<= 8;
-				--offset;
-				if( offset < ROM_WINDOW_SIZE ) {
-					// ROM window
-					++ROMWinAccessCount;
-					MemoryStatus = MEMORY_ROM_WINDOW;
-					retVal |= *(uint8_t*)(CodeMemory + offset);
-				}
-				else {
-					// RAM in rest of segment 0
-					retVal |= *(uint8_t*)(DataMemory - ROM_WINDOW_SIZE + offset);
-				}
+	// lookup for the region the address belongs to
+	region = lookupRegion(flatAddress);
 
-			} while( --size != 0 );
+	if( (flatAddress += size - 1) < region -> end ) {
+		// all the accesses happen within the region
+		// so we can do only 1 lookup
+		do {
+			retVal <<= 8;
+			retVal |= (*(region -> handler))(flatAddress--, 0, false);
+		} while( --size != 0 );
 
-			return retVal;
-		}
+		return retVal;
 	}
+	else {
+		// this single access splits across different regions
+		// we do multiple lookups to ensure compatibility
+		do {
+			region = lookupRegion(flatAddress);
+			retVal <<= 8;
+			retVal |= (*(region -> handler))(flatAddress--, 0, false);
+		} while( --size != 0 );
 
-	// Else it's data segment 1+
-	// Compiler PLEASE optimize this you know what I want to do
-	if( (_mapToDataSeg(segment) == -1)) {
-		// Unmapped memory
-		return 0;
+		return retVal;
 	}
-	// Else it's valid
-	segment = (uint8_t)(_mapToDataSeg(segment) & 0xff);
-
-	do {
-		retVal <<= 8;
-		retVal |= *(uint8_t*)(CodeMemory + (segment << 16) + --offset);
-	} while( --size != 0 );
-
-	return retVal;
 }
 
 // writes some data into data memory
 // size can only be 1, 2, 4, 8
 void memorySetData(SR_t segment, EA_t offset, size_t size, uint64_t data) {
+	uint32_t flatAddress;
+	const DataMemoryRegion_t * region;
 
+	MemoryStatus = MEMORY_OK;
+
+	ROMWinAccessCount = 0;
 	if( IsMemoryInited == false ) {
 		MemoryStatus = MEMORY_UNINITIALIZED;
-		return;
+		goto exit;
 	}
 
-	segment &= 0xff;	// limit segment to 0~255
-	switch( size ) {	// validate size
+	// validate size
+	switch( size ) {
 		case 0:
 		case 1:
 			// byte
@@ -231,34 +230,37 @@ void memorySetData(SR_t segment, EA_t offset, size_t size, uint64_t data) {
 			// qword
 			size = 8;
 	}
+
+	// align to word boundary
 	if( size > 1 ) {
-		MemoryStatus = ((offset & 1)? MEMORY_UNALIGNED : MEMORY_OK);
-		offset &= 0xfffe;	// align to word boundary
+		(offset & 1)? MemoryStatus = MEMORY_UNALIGNED : 0;
+		offset &= 0xfffe;
 	}
 
-	// I assume everything above data segment 0 is read-only
-	if( (segment != 0)) {
-		MemoryStatus = MEMORY_READ_ONLY;
-		return;
-	}
+	flatAddress = (segment << 16) + offset;
 
-	while( size-- > 0 ) {
-		if( offset >= ROM_WINDOW_SIZE ) {
-			// data region of segment 0
-			if( (offset > 0x8DFF) && (offset < 0xF000) ) {
-				// temporary solution
-				MemoryStatus = MEMORY_READ_ONLY;
-			}
-			else {
-				*(uint8_t*)(DataMemory + offset - ROM_WINDOW_SIZE) = (uint8_t)(data & 0xff);
-			}
-		}
-		else {
-			// code memory
-			MemoryStatus = MEMORY_READ_ONLY;	// assume code memory is read-only
-		}
-		++offset;
+	// lookup for the region the address belongs to
+	region = lookupRegion(flatAddress);
 
-		data >>= 8;
+	if( (flatAddress + size - 1) < region -> end ) {
+		// all the accesses happen within the region
+		// so we can do only 1 lookup
+		do {
+			(*(region -> handler))(flatAddress++, data & 0xff, true);
+			data >>= 8;
+		} while( --size != 0 );
 	}
+	else {
+		// this single access splits across different regions
+		// we do multiple lookups to ensure compatibility
+		do {
+			(*(region -> handler))(flatAddress++, data & 0xff, true);
+			data >>= 8;
+			if( --size == 0 )
+				break;
+			region = lookupRegion(flatAddress);
+		} while( 1 );
+	}
+exit:
+	;
 }

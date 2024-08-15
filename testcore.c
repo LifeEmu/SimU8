@@ -4,10 +4,10 @@
 #include <ctype.h>
 #include <conio.h>
 
-#include "inc/mmu.h"
-#include "inc/core.h"
-#include "inc/lcd.h"
-
+#include "src/mmu.h"
+#include "src/core.h"
+#include "src/lcd.h"
+#include "src/memmap.h"
 
 #define ROM_FILE_NAME "rom.bin"
 #define CYCLE_SKIP 51200	// defines how many cycles the core go before checking for keyboard
@@ -17,6 +17,19 @@
 
 unsigned char* VBuf = NULL;
 
+
+// dummy SFR implementation
+uint8_t SFRHandler(uint32_t address, uint8_t data, bool isWrite) {
+	uint8_t *p = (uint8_t *)DataMemory + address - ROM_WINDOW_SIZE;
+
+	if( isWrite ) {
+		*p = data;
+		return 0;
+	}
+	else {
+		return *p;
+	}
+}
 
 unsigned char* createVBuf(int x, int y) {
 	return (unsigned char*)malloc(x * y);
