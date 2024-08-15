@@ -69,5 +69,5 @@ const DataMemoryRegion_t DATA_MEMORY_MAP[DATA_MEMORY_REGION_COUNT] = {
 	{0x10000,	0x20000,	codeSegHandler},	// segment 1
 	{0x80000,	0xa0000,	codeSegHandler},	// segment 8+
 
-	{0x000000,	0xffffff,	defaultHandler}		// unmapped regions
+	{0x000000,	0x1000000,	defaultHandler}		// unmapped regions
 };
