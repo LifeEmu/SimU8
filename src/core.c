@@ -2186,7 +2186,7 @@ void coreDoNMI(void) {
 	CycleCount = 3 + EAIncDelay + IntMaskCycle;
 }
 
-void coreDoMI(uint8_t index) {
+bool coreDoMI(uint8_t index) {
 	if( (PSW.field.ELevel <= 1) && (index < 59) ) {
 		ELR1 = (PC + 2) & 0xfffe;
 		ECSR1 = CSR;
@@ -2196,7 +2196,9 @@ void coreDoMI(uint8_t index) {
 		CSR = 0;
 		PC = memoryGetCodeWord(0, 0x000A + (index << 1));
 		CycleCount = 3 + EAIncDelay + IntMaskCycle;
+		return true;
 	}
+	return false;
 }
 
 void coreDoSWI(uint8_t index) {
