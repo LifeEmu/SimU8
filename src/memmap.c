@@ -1,8 +1,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "../inc/memmap.h"
-#include "../inc/mmu.h"
+#include "memmap.h"
+#include "mmu.h"
 
 
 // Handler for mismatched addresses

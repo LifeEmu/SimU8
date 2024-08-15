@@ -1,5 +1,5 @@
-#ifndef MMU_STUB_H_DEFINED
-#define MMU_STUB_H_DEFINED
+#ifndef MMUSTUB_H_DEFINED
+#define MMUSTUB_H_DEFINED
 
 
 // A value of this type identifies a file.

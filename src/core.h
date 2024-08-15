@@ -2,6 +2,8 @@
 #define CORE_H_INCLUDED
 
 
+#include <stdbool.h>
+
 #include "regtypes.h"
 #include "coretypes.h"
 
