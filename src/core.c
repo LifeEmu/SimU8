@@ -1,6 +1,8 @@
 #include <stdbool.h>
-#include "../inc/mmu.h"
-#include "../inc/core.h"
+
+#include "mmu.h"
+#include "core.h"
+#include "coretypes.h"
 
 
 #define GET_DATA_SEG ((NextAccess == DATA_ACCESS_DSR)? DSR : (SR_t)0)

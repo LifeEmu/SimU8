@@ -1,8 +1,8 @@
 #include <stdint.h>
 
-
-#include "../inc/mmu.h"
-#include "../inc/lcd.h"
+#include "memmap.h"
+#include "mmu.h"
+#include "lcd.h"
 
 
 // renders a buffer

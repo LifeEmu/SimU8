@@ -4,9 +4,9 @@
 
 #include <stddef.h>
 #include <stdbool.h>
+
 #include "regtypes.h"
 #include "memtypes.h"
-#include "memsetup.h"
 #include "mmustub.h"
 
 

@@ -3,7 +3,7 @@
 #include <string.h>	// memory operation
 #include <stdint.h>	// integer types
 
-#include "../inc/mmustub.h"
+#include "mmustub.h"
 
 
 stub_MMUStatus_t stub_mmuLoadCodeMemory(const stub_MMUInitStruct_t s, const void *p) {

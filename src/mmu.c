@@ -1,8 +1,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "../inc/mmustub.h"
-#include "../inc/mmu.h"
+#include "regtypes.h"
+#include "memtypes.h"
+#include "mmustub.h"
+#include "memmap.h"
 
 
 void *CodeMemory = NULL;
