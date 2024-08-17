@@ -1,9 +1,8 @@
-#include "../../inc/SFR/sfr.h"
-#include "../../inc/memmap.h"
-#include "../../inc/mmu.h"
-#include "../../inc/core.h"
+#include "../memmap.h"
+#include "../mmu.h"
+#include "../core.h"
 
-
+#include "sfr.h"
 #include "standby.h"
 #include "timer.h"
 #include "keyboard.h"

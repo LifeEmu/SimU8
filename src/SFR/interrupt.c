@@ -1,6 +1,6 @@
 #include "interrupt.h"
 
-#include "../../inc/core.h"
+#include "../core.h"
 
 
 volatile Interrupt_t InterruptType;
