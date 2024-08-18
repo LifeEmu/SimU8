@@ -4,9 +4,10 @@
 #include <ctype.h>
 #include <conio.h>
 
-#include "inc/mmu.h"
-#include "inc/core.h"
-#include "inc/lcd.h"
+#include "src/memmap.h"
+#include "src/mmu.h"
+#include "src/core.h"
+#include "src/lcd.h"
 #include "BrailleDisplay.h"
 
 #define ROM_FILE_NAME "rom.bin"
@@ -16,6 +17,19 @@
 
 unsigned char* VBuf = NULL;
 
+
+// dummy SFR implementation
+uint8_t SFRHandler(uint32_t address, uint8_t data, bool isWrite) {
+	uint8_t *p = (uint8_t *)DataMemory + address - ROM_WINDOW_SIZE;
+
+	if( isWrite ) {
+		*p = data;
+		return 0;
+	}
+	else {
+		return *p;
+	}
+}
 
 unsigned char* createVBuf(int x, int y) {
 	Braille_createDisplay();
@@ -36,26 +50,26 @@ void setPix(int x, int y, int c) {
 void updateDisp() {
 	// status bar area
 /*
- * 123456781234567812345678123456781234567812345678123456781234567812345678123456781234567812345678
- * [S] [A]   M   STO  RCL    STAT  CMPLX  MAT  VCT   [D]  [R]  [G]    FIX  SCI   Math   v  ^   Disp
+ * 123456781234567812345678123456781234567812345678
+ * S A M STO RCL STAT CMPLX MAT VCT D R G FIX SCI Math v ^ Disp
  */
-	fputs(*(VBuf + 3) == DARK_PIXEL? "\n[S] " : "\n    ", stdout);
-	fputs(*(VBuf + 5) == DARK_PIXEL? "[A]   " : "      ", stdout);
-	fputs(*(VBuf + 8*1 + 3) == DARK_PIXEL? "M   " : "    ", stdout);
-	fputs(*(VBuf + 8*1 + 6) == DARK_PIXEL? "STO  " : "     ", stdout);
-	fputs(*(VBuf + 8*2 + 1) == DARK_PIXEL? "RCL    " : "       ", stdout);
-	fputs(*(VBuf + 8*3 + 1) == DARK_PIXEL? "STAT  " : "      ", stdout);
-	fputs(*(VBuf + 8*4 + 0) == DARK_PIXEL? "CMPLX  " : "       ", stdout);
-	fputs(*(VBuf + 8*5 + 1) == DARK_PIXEL? "MAT  " : "     ", stdout);
-	fputs(*(VBuf + 8*5 + 6) == DARK_PIXEL? "VCT   " : "      ", stdout);
-	fputs(*(VBuf + 8*7 + 2) == DARK_PIXEL? "[D]  " : "     ", stdout);
-	fputs(*(VBuf + 8*7 + 6) == DARK_PIXEL? "[R]  " : "     ", stdout);
-	fputs(*(VBuf + 8*8 + 3) == DARK_PIXEL? "[G]    " : "       ", stdout);
-	fputs(*(VBuf + 8*8 + 7) == DARK_PIXEL? "FIX  " : "     ", stdout);
-	fputs(*(VBuf + 8*9 + 2) == DARK_PIXEL? "SCI   " : "      ", stdout);
-	fputs(*(VBuf + 8*10 + 1) == DARK_PIXEL? "Math   " : "       ", stdout);
-	fputs(*(VBuf + 8*10 + 4) == DARK_PIXEL? "v  " : "   ", stdout);
-	fputs(*(VBuf + 8*11 + 0) == DARK_PIXEL? "^   " : "    ", stdout);
+	fputs(*(VBuf + 3) == DARK_PIXEL? "\nS " : "\n  ", stdout);
+	fputs(*(VBuf + 5) == DARK_PIXEL? "A " : "  ", stdout);
+	fputs(*(VBuf + 8*1 + 3) == DARK_PIXEL? "M " : "  ", stdout);
+	fputs(*(VBuf + 8*1 + 6) == DARK_PIXEL? "STO " : "    ", stdout);
+	fputs(*(VBuf + 8*2 + 1) == DARK_PIXEL? "RCL " : "    ", stdout);
+	fputs(*(VBuf + 8*3 + 1) == DARK_PIXEL? "STAT " : "     ", stdout);
+	fputs(*(VBuf + 8*4 + 0) == DARK_PIXEL? "CMPLX " : "      ", stdout);
+	fputs(*(VBuf + 8*5 + 1) == DARK_PIXEL? "MAT " : "    ", stdout);
+	fputs(*(VBuf + 8*5 + 6) == DARK_PIXEL? "VCT " : "    ", stdout);
+	fputs(*(VBuf + 8*7 + 2) == DARK_PIXEL? "D " : "  ", stdout);
+	fputs(*(VBuf + 8*7 + 6) == DARK_PIXEL? "R " : "  ", stdout);
+	fputs(*(VBuf + 8*8 + 3) == DARK_PIXEL? "G " : "  ", stdout);
+	fputs(*(VBuf + 8*8 + 7) == DARK_PIXEL? "FIX " : "    ", stdout);
+	fputs(*(VBuf + 8*9 + 2) == DARK_PIXEL? "SCI " : "    ", stdout);
+	fputs(*(VBuf + 8*10 + 1) == DARK_PIXEL? "Math " : "     ", stdout);
+	fputs(*(VBuf + 8*10 + 4) == DARK_PIXEL? "v " : "  ", stdout);
+	fputs(*(VBuf + 8*11 + 0) == DARK_PIXEL? "^ " : "  ", stdout);
 	fputs(*(VBuf + 8*11 + 3) == DARK_PIXEL? "Disp\n" : "    \n", stdout);
 
 	// dot matrix area
