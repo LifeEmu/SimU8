@@ -65,13 +65,14 @@ static uint16_t _ALU_ADD_W(register uint16_t dest, register uint16_t src) {
 // 8-bit addition with carry
 static uint8_t _ALU_ADDC(register uint8_t dest, register uint8_t src) {
 	uint16_t retVal = dest + src + PSW.field.C;
+	uint8_t oldCarry = PSW.field.C;
 	PSW.field.C = (retVal & 0x100)? 1 : 0;
 	retVal &= 0xff;
 	PSW.field.Z = PSW.field.Z & IS_ZERO(retVal);
 	PSW.field.S = SIGN8(retVal);
 	// reference: Z80 user manual
-	PSW.field.OV = (((dest & 0x7f) + (src & 0x7f) + PSW.field.C) >> 7) ^ PSW.field.C;
-	PSW.field.HC = (((dest & 0x0f) + (src & 0x0f) + PSW.field.C) & 0x10)? 1 : 0;
+	PSW.field.OV = (((dest & 0x7f) + (src & 0x7f) + oldCarry) >> 7) ^ PSW.field.C;
+	PSW.field.HC = (((dest & 0x0f) + (src & 0x0f) + oldCarry) & 0x10)? 1 : 0;
 	return (uint8_t)retVal;
 }
 
@@ -108,7 +109,7 @@ static void _ALU_CMP_W(register uint16_t dest, register uint16_t src) {
 	PSW.field.S = SIGN16(retVal);
 	// reference: Z80 user manual
 	PSW.field.OV = (((dest & 0x7fff) - (src & 0x7fff)) >> 15) ^ PSW.field.C;
-	PSW.field.HC = (((dest & 0x0fff) - (src & 0x0fff)) & 0x10)? 1 : 0;
+	PSW.field.HC = (((dest & 0x0fff) - (src & 0x0fff)) & 0x1000)? 1 : 0;
 }
 
 // 8-bit comparison & subtraction
@@ -130,13 +131,14 @@ static uint8_t _ALU_SUB(register uint8_t dest, register uint8_t src) {
 // 8-bit comparison & subtraction with carry
 static uint8_t _ALU_SUBC(register uint8_t dest, register uint8_t src) {
 	uint16_t retVal = dest - src - PSW.field.C;
+	uint8_t oldCarry = PSW.field.C;
 	PSW.field.C = (retVal & 0x100)? 1 : 0;
 	retVal &= 0xff;
 	PSW.field.Z = PSW.field.Z & IS_ZERO(retVal);
 	PSW.field.S = SIGN8(retVal);
 	// reference: Z80 user manual
-	PSW.field.OV = (((dest & 0x7f) - (src & 0x7f) - PSW.field.C) >> 7) ^ PSW.field.C;
-	PSW.field.HC = (((dest & 0x0f) - (src & 0x0f) - PSW.field.C) & 0x10)? 1 : 0;
+	PSW.field.OV = (((dest & 0x7f) - (src & 0x7f) - oldCarry) >> 7) ^ PSW.field.C;
+	PSW.field.HC = (((dest & 0x0f) - (src & 0x0f) - oldCarry) & 0x10)? 1 : 0;
 	return (uint8_t)retVal;
 }
 
@@ -144,30 +146,33 @@ static uint8_t _ALU_SUBC(register uint8_t dest, register uint8_t src) {
 
 // 8-bit logical left shift
 static uint8_t _ALU_SLL(register uint8_t data, register uint8_t count) {
-	uint16_t retVal = data << (count & 0x07);
+	uint16_t retVal;
 	if( count == 0 ) {
 		return data;
 	}
+	retVal = data << (count & 0x07);
 	PSW.field.C = (retVal & 0x100)? 1 : 0;
 	return (uint8_t)(retVal & 0xff);
 }
 
 // 8-bit logical right shift
 static uint8_t _ALU_SRL(register uint8_t data, register uint8_t count) {
-	uint16_t retVal = (data << 1) >> (count & 0x07);	// leave space for carry flag
+	uint16_t retVal;
 	if( count == 0 ) {
 		return data;
 	}
+	retVal = (data << 1) >> (count & 0x07);	// leave space for carry flag
 	PSW.field.C = retVal & 0x01;
 	return (uint8_t)((retVal >> 1) & 0xff);
 }
 
 // 8-bit arithmetic right shift
 static uint8_t _ALU_SRA(register uint8_t data, register uint8_t count) {
-	int16_t retVal = data << 8;		// use arithmetic shift of host processor
+	int16_t retVal;
 	if( count == 0 ) {
 		return data;
 	}
+	retVal = data << 8;		// use arithmetic shift of host processor
 	retVal >>= ((count & 0x07) + 7);	// leave space for carry flag
 	PSW.field.C = retVal & 0x01;
 	return (uint8_t)((retVal >> 1) & 0xff);
@@ -179,18 +184,23 @@ static inline uint8_t _ALU_DAA(register uint16_t byte) {
 	// reference: AMD64 general purpose and system instructions
 
 	// lower nibble
-	if( PSW.field.HC || ((byte & 0x0f) > 0x09) ) {
+	if( (byte & 0x0f) > 0x09 ) {
+		// in this case, adjustment always produce a half carry
 		byte += 0x06;
-		// Set HC only when adjustment produces carry into upper nibble
 		PSW.field.HC = 1;
+	}
+	else if( PSW.field.HC == 1 ) {
+		// else, it wouldn't produce a half carry (because (byte & 0x0F) <= 0x09)
+		byte += 0x06;
+		PSW.field.HC = 0;
 	}
 
 	// higher nibble
-	if( PSW.field.C || ((byte & 0xf0) > 0x90) || (byte & 0x100) ) {
+	if( ((byte & 0xf0) > 0x90) || (PSW.field.C == 1) || (byte & 0x100) ) {
 		byte += 0x60;
-		PSW.field.C = 1;	// carry should always be set
 	}
 
+	PSW.field.C |= (byte & 0x100)? 1 : 0;
 	PSW.field.S = SIGN8(byte);
 	PSW.field.Z = IS_ZERO((uint8_t)byte);
 	return byte;
@@ -202,18 +212,23 @@ static inline uint8_t _ALU_DAS(register uint16_t byte) {
 	// reference: AMD64 general purpose and system instructions
 
 	// lower nibble
-	if( PSW.field.HC || ((byte & 0x0f) > 0x09) ) {
+
+	if( (byte & 0x0f) > 0x09 ) {
+		// in this case, adjustment won't produce a half carry
 		byte -= 0x06;
-		// Set HC only when adjustment borrows from upper nibble
-		PSW.field.HC = 1;
+		PSW.field.HC = 0;
+	}
+	else if( PSW.field.HC == 1 ) {
+		byte -= 0x06;
+		PSW.field.HC = ((byte & 0x0f) > 0x09)? 1 : 0;
 	}
 
 	// higher nibble
-	if( PSW.field.C || ((byte & 0xf0) > 0x90) || (byte & 0x100) ) {
+	if( ((byte & 0xf0) > 0x90) || (PSW.field.C == 1) ) {
 		byte -= 0x60;
-		PSW.field.C = 1;	// carry should always be set
 	}
 
+	PSW.field.C |= (byte & 0x100)? 1 : 0;
 	PSW.field.S = SIGN8(byte);
 	PSW.field.Z = IS_ZERO((uint8_t)byte);
 	return byte;
