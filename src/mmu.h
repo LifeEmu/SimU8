@@ -4,23 +4,24 @@
 
 #include <stddef.h>
 #include <stdbool.h>
+
 #include "regtypes.h"
 #include "memtypes.h"
-#include "memsetup.h"
+#include "mmustub.h"
 
 
 extern void *CodeMemory;
 extern void *DataMemory;
 extern bool IsMemoryInited;
-// Status of last memory function
+// Status of last memory operation
 extern MEMORY_STATUS MemoryStatus;
 // Tracks how many ROM window access has happened
-extern int ROMWinAccessCount;
+extern unsigned int ROMWinAccessCount;
 
 
-MEMORY_STATUS memoryInit(char *CodeFileName, char *DataFileName);
-MEMORY_STATUS memorySaveData(char *DataFileName);
-MEMORY_STATUS memoryLoadData(char *DataFileName);
+MEMORY_STATUS memoryInit(stub_MMUFileID_t codeFileID, stub_MMUFileID_t dataFileID);
+MEMORY_STATUS memorySaveData(stub_MMUFileID_t dataFileID);
+MEMORY_STATUS memoryLoadData(stub_MMUFileID_t dataFileID);
 MEMORY_STATUS memoryFree(void);
 uint16_t memoryGetCodeWord(SR_t segment, PC_t offset);
 uint64_t memoryGetData(SR_t segment, EA_t offset, size_t size);

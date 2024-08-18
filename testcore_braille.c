@@ -4,15 +4,30 @@
 #include <ctype.h>
 #include <conio.h>
 
-#include "inc/mmu.h"
-#include "inc/core.h"
-#include "inc/lcd.h"
+#include "src/memmap.h"
+#include "src/mmu.h"
+#include "src/core.h"
+#include "src/lcd.h"
 #include "BrailleDisplay.h"
 
 #define ROM_FILE_NAME "rom_991cnx_c_real.bin"
+#define CYCLE_SKIP 51200	// defines how many cycles the core go before checking for keyboard
 
 
-inline void createVBuf(void) {
+// dummy SFR implementation
+uint8_t SFRHandler(uint32_t address, uint8_t data, bool isWrite) {
+	uint8_t *p = (uint8_t *)DataMemory + address - ROM_WINDOW_SIZE;
+
+	if( isWrite ) {
+		*p = data;
+		return 0;
+	}
+	else {
+		return *p;
+	}
+}
+
+void createVBuf(void) {
 	Braille_createDisplay();
 }
 
@@ -26,17 +41,32 @@ void setPix(int x, int y, int c) {
 }
 
 void updateDisp() {
+	// status bar area
+/*
+ * 123456781234567812345678123456781234567812345678
+ * S A M STO RCL STAT CMPLX MAT VCT D R G FIX SCI Math v ^ Disp
+ 
+	fputs(*(VBuf + 3) == DARK_PIXEL? "\nS " : "\n  ", stdout);
+	fputs(*(VBuf + 5) == DARK_PIXEL? "A " : "  ", stdout);
+	fputs(*(VBuf + 8*1 + 3) == DARK_PIXEL? "M " : "  ", stdout);
+	fputs(*(VBuf + 8*1 + 6) == DARK_PIXEL? "STO " : "    ", stdout);
+	fputs(*(VBuf + 8*2 + 1) == DARK_PIXEL? "RCL " : "    ", stdout);
+	fputs(*(VBuf + 8*3 + 1) == DARK_PIXEL? "STAT " : "     ", stdout);
+	fputs(*(VBuf + 8*4 + 0) == DARK_PIXEL? "CMPLX " : "      ", stdout);
+	fputs(*(VBuf + 8*5 + 1) == DARK_PIXEL? "MAT " : "    ", stdout);
+	fputs(*(VBuf + 8*5 + 6) == DARK_PIXEL? "VCT " : "    ", stdout);
+	fputs(*(VBuf + 8*7 + 2) == DARK_PIXEL? "D " : "  ", stdout);
+	fputs(*(VBuf + 8*7 + 6) == DARK_PIXEL? "R " : "  ", stdout);
+	fputs(*(VBuf + 8*8 + 3) == DARK_PIXEL? "G " : "  ", stdout);
+	fputs(*(VBuf + 8*8 + 7) == DARK_PIXEL? "FIX " : "    ", stdout);
+	fputs(*(VBuf + 8*9 + 2) == DARK_PIXEL? "SCI " : "    ", stdout);
+	fputs(*(VBuf + 8*10 + 1) == DARK_PIXEL? "Math " : "     ", stdout);
+	fputs(*(VBuf + 8*10 + 4) == DARK_PIXEL? "v " : "  ", stdout);
+	fputs(*(VBuf + 8*11 + 0) == DARK_PIXEL? "^ " : "  ", stdout);
+	fputs(*(VBuf + 8*11 + 3) == DARK_PIXEL? "Disp\n" : "    \n", stdout);
+*/
+	// dot matrix area
 	Braille_flushDisplay();
-}
-
-
-inline int16_t _mapToDataSeg(SR_t ds) {
-	ds &= CODE_MIRROW_MASK;
-	if( ds == 5 )
-		return 0;
-	if( ds < 4 )
-		return ds;
-	return -1;
 }
 
 
@@ -128,9 +158,10 @@ int main(void) {
 	puts("input 'q' to exit.");
 
 	fflush(stdin);
+	unsigned int cycle = 0;
 	// main loop
 	do {
-		while( !_kbhit() ) {
+		while( (cycle < CYCLE_SKIP) || !_kbhit() ) {
 			if( !isCommand ) {
 				switch( coreStep() ) {
 				case CORE_ILLEGAL_INSTRUCTION:
@@ -154,6 +185,7 @@ int main(void) {
 				default:
 					break;
 				}
+				cycle += CycleCount;
 
 				// breakpoint
 				if( hasBreakpoint && (CSR == breakCSR) && (PC == breakPC)) {
@@ -168,7 +200,12 @@ int main(void) {
 					break;
 				}
 			}
+			else {
+				break;
+			}
 		}
+		printf("Cycle = %d.\n", cycle);
+		cycle = 0;
 		key = tolower(_getch());	// get char and echo
 		isCommand = 1;
 		switch( key ) {
@@ -181,7 +218,7 @@ int main(void) {
 		case 'a':
 			// show addresses
 			puts("\nShow addresses (a)");
-			printf("`CodeMemory` = %p\n`DataMemory` = %p.\n");
+			printf("`CodeMemory` = %p\n`DataMemory` = %p.\n", CodeMemory, DataMemory);
 			break;
 
 		case 's':
@@ -275,6 +312,7 @@ int main(void) {
 
 		case 'w':
 			puts("\nWrite data memory to file...(w)\nInput filename to save:");
+			fflush(stdin);
 			gets(saveFileName);	// I know it's unsafe blah blah
 			if( memorySaveData(saveFileName) != MEMORY_OK )
 				puts("Saving failed...");
@@ -284,6 +322,7 @@ int main(void) {
 
 		case 'e':
 			puts("\nRead data memory from file...(e)\nInput savestate file name:");
+			fflush(stdin);
 			gets(saveFileName);	// I know it's unsafe blah blah
 			if( memoryLoadData(saveFileName) != MEMORY_OK )
 				puts("Loading failed...");

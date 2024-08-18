@@ -4,9 +4,9 @@ An nX-U8/100 simulator written in C. This has nothing to do with CASIO's `SimU8.
 
 Not finished yet.
 - Most instructions are implemented but not all of them are tested.
-- `SWI` is not implemented.
+- `SWI` is ~~not~~now implemented.
 - All the coprocessors instructions are not implemented.
-- Interrupts are not implemented yet.
+- Interrupts are ~~not~~ implemented ~~yet~~.
 
 ## Usage
 To use the code in your project, include the header in your source, and include corresponding source file when compiling.
