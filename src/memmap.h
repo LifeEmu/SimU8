@@ -6,12 +6,11 @@
 #include <stdbool.h>
 
 
-#define ROM_WINDOW_SIZE 0x8000
+#define ROM_WINDOW_SIZE 0x9000
 
 // On segment 1 and above, code and data memory accesses access the same physical memories
 // and an assumption is made here: I assume all pages above page 0 are read-only
-#define CODE_PAGE_COUNT 2
-#define DATA_PAGE_COUNT 2
+#define CODE_PAGE_COUNT 8
 
 // mask for page mirrowing
 // If there're 3 code pages (0~3), mirrow mask should be set to 0x03
@@ -26,11 +25,10 @@
  * 6	| mirrow
  * 7	| mirrow
  */
-#define CODE_MIRROW_MASK 0x01
-#define DATA_MIRROW_MASK 0x07
+#define CODE_MIRROW_MASK 0x07
 
 // number of entries in `DATA_MEMORY_MAP`
-#define DATA_MEMORY_REGION_COUNT 7
+#define DATA_MEMORY_REGION_COUNT 5
 
 
 // `uint8_t handler(uint32_t address, uint8_t data, bool isWrite);`

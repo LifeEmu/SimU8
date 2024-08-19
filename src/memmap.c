@@ -22,7 +22,28 @@ static uint8_t codeSegHandler(uint32_t address, uint8_t data, bool isWrite) {
 		return 0;
 	}
 
-	return *((uint8_t *)CodeMemory + (address & 0x1ffff));
+	address &= ((CODE_MIRROW_MASK << 16) | 0xffff);	// mirrow memory
+
+/*
+// save space (only works for 999CNCW VerA ROM)
+// first 0x50000 bytes, plus 18 bytes starting from 0x5ffee
+	if( (address >= 0x70000) && (address < 0x72000) ) {
+			// 5e000 - 5ffff
+			address -= 0x12000;
+	}
+
+	if( address < 0x50000 ) {
+		return *((uint8_t *)CodeMemory + address);	// return as-is
+	}
+	else if( address < 0x5ffee ) {
+		return 0xff;		// not included
+	}
+	else if( address < 0x60000 ) {
+		return *((uint8_t *)CodeMemory + address - 0xffee);
+	}
+	return 0xff;
+*/
+	return *((uint8_t *)CodeMemory + address);
 }
 
 static uint8_t romWindowHandler(uint32_t address, uint8_t data, bool isWrite) {
@@ -45,7 +66,7 @@ static uint8_t RAMHandler(uint32_t address, uint8_t data, bool isWrite) {
 }
 
 static uint8_t VRAMHandler(uint32_t address, uint8_t data, bool isWrite) {
-	if( (address & 0xF) >= 0xC ) {	// unmapped region of VRAM
+	if( (address & 0x1F) >= 0x18 ) {	// unmapped region of VRAM
 		if( isWrite ) {
 			MemoryStatus = MEMORY_UNMAPPED;
 		}
@@ -62,12 +83,10 @@ static uint8_t VRAMHandler(uint32_t address, uint8_t data, bool isWrite) {
 // default memory map, for real ES+
 const DataMemoryRegion_t DATA_MEMORY_MAP[DATA_MEMORY_REGION_COUNT] = {
 //	start		end +1		handler
-	{0x00000,	0x08000,	romWindowHandler},	// ROM window handler
-	{0x0f800,	0x0fa00,	VRAMHandler},		// ES+ VRAM
-	{0x08000,	0x08e00,	RAMHandler},		// ES+ RAM
-	{0x0f000,	0x0f050,	SFRHandler},		// ES+ SFRs
-	{0x10000,	0x20000,	codeSegHandler},	// segment 1
-	{0x80000,	0xa0000,	codeSegHandler},	// segment 8+
+	{0x09000,	0x0f000,	RAMHandler},		// CWII RAM
+	{0x0f000,	0x10000,	SFRHandler},		// CWII SFRs
+	{0x00000,	0x09000,	romWindowHandler},	// ROM window handler
+	{0x10000,	0x100000,	codeSegHandler},	// segment 1-F
 
 	{0x000000,	0x1000000,	defaultHandler}		// unmapped regions
 };

@@ -19,31 +19,12 @@
 #include "src/SFR/timer.h"
 #include "src/SFR/keyboard.h"
 
-
-#define ROM_FILE_NAME "rom.bin"
+#define ROM_FILE_NAME "rom_999cncw_a_real.bin"
 #define CYCLE_SKIP 51200	// defines how many cycles the core go before checking for keyboard
 #define DARK_PIXEL 'O'
 #define LIGHT_PIXEL ' '
 
 #define KEY_HOLD_FRAME 40
-
-unsigned char* VBuf = NULL;
-
-
-// dummy SFR implementation
-/*
-uint8_t SFRHandler(uint32_t address, uint8_t data, bool isWrite) {
-	uint8_t *p = (uint8_t *)DataMemory + address - ROM_WINDOW_SIZE;
-
-	if( isWrite ) {
-		*p = data;
-		return 0;
-	}
-	else {
-		return *p;
-	}
-}
-*/
 
 typedef enum {
 	KEY_1 = 0,
@@ -149,6 +130,7 @@ void *updatePeriphrals(void *params) {
 		updateTimer();
 		usleep(16666);	// 16.7ms
 		updateKeyboard();
+		exitStandby();
 		do {
 			pthread_testcancel();
 		} while( isSingleStep );
@@ -156,6 +138,7 @@ void *updatePeriphrals(void *params) {
 }
 
 
+unsigned char* VBuf = NULL;
 
 unsigned char* createVBuf(int x, int y) {
 	Braille_createDisplay();
@@ -169,8 +152,10 @@ void freeVBuf(unsigned char* buf) {
 
 
 void setPix(int x, int y, int c) {
-	if(!y)*(VBuf + y * LCD_WIDTH + x) = (c? DARK_PIXEL : LIGHT_PIXEL);
-	else Braille_setPix(x, y, c);
+	if( !y )
+		*(VBuf + y * LCD_WIDTH + x) = (c? DARK_PIXEL : LIGHT_PIXEL);
+	else
+		Braille_setPix(x, y, c);
 }
 
 void updateDisp() {
@@ -339,7 +324,7 @@ int main(void) {
 							cleanTimerIRQ();
 							break;
 						case KEYBOARD_INT_INDEX:
-							puts("[testcore] Keyboard IRQ cleaned.");
+//							puts("[testcore] Keyboard IRQ cleaned.");
 							cleanKeyboardIRQ();
 							break;
 						default:
@@ -423,8 +408,11 @@ int main(void) {
 			// display
 			puts("\nDisplay the LCD (d)\n----------------");
 			renderVRAM();
-			puts("Display the buffer\n----------------");
-			Braille_setDisplay(DataMemory - ROM_WINDOW_SIZE + 0x87d0);
+			puts("Display buffer 1\n----------------");
+			Braille_setDisplay(DataMemory - ROM_WINDOW_SIZE + 0xca54);
+			updateDisp();
+			puts("Display buffer 2\n----------------");
+			Braille_setDisplay(DataMemory - ROM_WINDOW_SIZE + 0xd654);
 			updateDisp();
 			Braille_clearDisplay();
 			puts("----------------");

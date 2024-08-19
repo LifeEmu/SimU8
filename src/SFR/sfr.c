@@ -1,18 +1,18 @@
+#include "sfr.h"
 #include "../memmap.h"
 #include "../mmu.h"
 #include "../core.h"
 
-#include "sfr.h"
+
 #include "standby.h"
 #include "timer.h"
 #include "keyboard.h"
 
-#include <stdio.h>
 
 #define getSFR(SFR) ((volatile uint8_t *)DataMemory - ROM_WINDOW_SIZE + SFR)
 
 
-static inline uint8_t _directRW(uint8_t *p, uint8_t data, bool isWrite) {
+static inline uint8_t _directRW(volatile uint8_t *p, uint8_t data, bool isWrite) {
 	if( isWrite ) {
 		*p = data;
 	}
@@ -20,8 +20,16 @@ static inline uint8_t _directRW(uint8_t *p, uint8_t data, bool isWrite) {
 }
 
 uint8_t SFRHandler(uint32_t address, uint8_t data, bool isWrite) {
-	uint8_t *p = (uint8_t *)DataMemory - ROM_WINDOW_SIZE + address;
+	volatile uint8_t *p = (volatile uint8_t *)DataMemory - ROM_WINDOW_SIZE + address;
 
+/*
+	if( address >= 0xf800 ) {
+		if( *getSFR(0xf037) & 0x04 ) {
+			return _directRW(LCDBuffer + LCD_BUFFER_BITPLANE_SIZE + address - ROM_WINDOW_SIZE - 0xf800, data, isWrite);
+		}
+		return _directRW(LCDBuffer + address - ROM_WINDOW_SIZE - 0xf800, data, isWrite);
+	}
+*/
 	switch( address ) {
 		case SFR_DSR:
 			if( isWrite )
@@ -71,11 +79,11 @@ uint8_t SFRHandler(uint32_t address, uint8_t data, bool isWrite) {
 			break;
 
 		case SFR_KI0:
-			return _directRW(p, data, isWrite);
+			return 0xE7;
 			break;
 		
 		case SFR_KI1:
-			return _directRW(p, data, isWrite);
+			return *p;
 			break;
 
 		case SFR_KIM0:
@@ -108,6 +116,10 @@ uint8_t SFRHandler(uint32_t address, uint8_t data, bool isWrite) {
 				coreUpdateKeyboard();
 			}
 			return *p;
+			break;
+
+		case 0xF037:
+			return _directRW(p, data, isWrite);
 			break;
 
 		default:
