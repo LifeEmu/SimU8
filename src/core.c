@@ -1358,7 +1358,7 @@ CORE_STATUS coreStep(void) {
 			// MOV EPSW, Rm
 			if( PSW.field.ELevel != 0 )
 				_getCurrEPSW()->raw = GR.rs[regNumSrc];
-			CycleCount = 2;
+			CycleCount = 1;
 			break;
 
 		case 0xad:
@@ -1757,7 +1757,7 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// MUL ERn, Rm
-			CycleCount = 8;
+			CycleCount = 9;
 			dest = GR.rs[regNumDest] * GR.rs[regNumSrc];
 			PSW.field.Z = IS_ZERO(dest);
 			GR.ers[regNumDest >> 1] = dest & 0xffff;
@@ -1816,7 +1816,7 @@ CORE_STATUS coreStep(void) {
 			// DIV ERn, Rm
 			dest = GR.ers[regNumDest >> 1];
 			src = GR.rs[regNumSrc];
-			CycleCount = 16;
+			CycleCount = 17;
 			PSW.field.Z = IS_ZERO(dest);
 			PSW.field.C = 0;
 			if( src == 0 ) {
@@ -1828,7 +1828,7 @@ CORE_STATUS coreStep(void) {
 			}
 			// Else both number are not zero
 			GR.rs[regNumSrc] = (dest % src) & 0xff;
-			GR.ers[regNumDest] = (dest / src) & 0xffff;
+			GR.ers[regNumDest >> 1] = (dest / src) & 0xffff;
 			break;
 
 		case 0xfa:
