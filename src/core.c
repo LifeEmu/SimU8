@@ -724,9 +724,8 @@ CORE_STATUS coreStep(void) {
 
 			dest >>= src;
 			PSW.field.C = dest & 0x01;
-			dest = (dest >> 1) & 0xff;
 
-			GR.rs[regNumDest] = (dest & 0xff);
+			GR.rs[regNumDest] = ((dest >> 1) & 0xff);
 
 			break;
 
@@ -1145,9 +1144,8 @@ CORE_STATUS coreStep(void) {
 
 			dest >>= src;
 			PSW.field.C = dest & 0x01;
-			dest = (dest >> 1) & 0xff;
 
-			GR.rs[regNumDest] = (dest & 0xff);
+			GR.rs[regNumDest] = ((dest >> 1) & 0xff);
 
 			break;
 
