@@ -21,11 +21,11 @@
 
 
 #define ROM_FILE_NAME "rom.bin"
-#define CYCLE_SKIP 51200	// defines how many cycles the core go before checking for keyboard
+#define CYCLE_SKIP 512	// defines how many cycles the core go before checking for keyboard
 #define DARK_PIXEL 'O'
 #define LIGHT_PIXEL ' '
 
-#define KEY_HOLD_FRAME 40
+#define KEY_HOLD_FRAME 30
 
 unsigned char* VBuf = NULL;
 
@@ -303,7 +303,7 @@ int main(void) {
 	do {
 		while( (cycle < CYCLE_SKIP) || !_kbhit() ) {
 			if( !isCommand ) {
-				if( StandbyState != STANDBY_STP ) {
+				if( isSingleStep || (StandbyState != STANDBY_STP) ) {
 					switch( coreStep() ) {
 					case CORE_ILLEGAL_INSTRUCTION:
 						coreDispRegs();
@@ -327,8 +327,11 @@ int main(void) {
 						break;
 					}
 					cycle += CycleCount;
-
-					// interrupt handling
+				}
+/*				else {
+					break;
+				}
+*/					// interrupt handling
 					// check first
 					checkTimerInterrupt();
 					checkKeyboardInterrupt();
@@ -345,10 +348,6 @@ int main(void) {
 						default:
 							break;
 					}
-				}
-				else {
-					break;
-				}
 
 				// breakpoint
 				if( hasBreakpoint && (CSR == breakCSR) && (PC == breakPC)) {
@@ -487,6 +486,22 @@ int main(void) {
 				puts("Loading failed...");
 			else
 				puts("Loading complete!");
+			break;
+
+		case 'k':
+			uint8_t ki, ko;
+			puts("\nKeyboard...(k)\nInput KI & KO bit to connect together(use space to split: `KI KO`):");
+			fflush(stdin);
+			scanf("%d %d", &ki, &ko);
+			if( (ki < 8) && (ko < 8) ) {
+				currKey = ki * 8 + ko;
+				keyDownFrame = KEY_HOLD_FRAME;
+//				coreUpdateKeyboard();
+				printf("(KI, KO) = (%d, %d) registered.\n", ki, ko);
+			}
+			else {
+				puts("Invalid KI/KO!");
+			}
 			break;
 
 		default:
