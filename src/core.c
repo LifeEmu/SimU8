@@ -2151,7 +2151,7 @@ CORE_STATUS coreStep(void) {
 						coreReset();
 					}
 					else {
-						ELR2 = (PC + 2) & 0xfffe;
+						ELR2 = PC;
 						ECSR2 = CSR;
 						EPSW2 = PSW;
 						PSW.field.ELevel = 2;
