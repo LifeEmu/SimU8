@@ -2192,7 +2192,7 @@ exit:
 
 
 void coreDoNMI(void) {
-	ELR2 = (PC + 2) & 0xfffe;
+	ELR2 = PC;
 	ECSR2 = CSR;
 	EPSW2 = PSW;
 	PSW.field.ELevel = 2;
@@ -2203,7 +2203,7 @@ void coreDoNMI(void) {
 
 bool coreDoMI(uint8_t index) {
 	if( (PSW.field.ELevel <= 1) && (index < 59) ) {
-		ELR1 = (PC + 2) & 0xfffe;
+		ELR1 = PC;
 		ECSR1 = CSR;
 		EPSW1 = PSW;
 		PSW.field.ELevel = 1;
@@ -2218,7 +2218,7 @@ bool coreDoMI(uint8_t index) {
 
 void coreDoSWI(uint8_t index) {
 	if( index < 64 ) {
-		ELR1 = (PC + 2) & 0xfffe;
+		ELR1 = PC;
 		ECSR1 = CSR;
 		EPSW1 = PSW;
 		PSW.field.ELevel = 1;
