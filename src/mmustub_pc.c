@@ -6,7 +6,7 @@
 #include "mmustub.h"
 
 
-stub_MMUStatus_t stub_mmuLoadCodeMemory(const stub_MMUInitStruct_t s, const void *p) {
+stub_MMUStatus_t stub_mmuLoadCodeMemory(const stub_MMUInitStruct_t s, void *p) {
 	FILE *f;
 	if( p == NULL )
 		return STUB_MMU_ERROR;
@@ -22,7 +22,7 @@ stub_MMUStatus_t stub_mmuLoadCodeMemory(const stub_MMUInitStruct_t s, const void
 }
 
 
-stub_MMUStatus_t stub_mmuLoadDataMemory(const stub_MMUInitStruct_t s, const void *p) {
+stub_MMUStatus_t stub_mmuLoadDataMemory(const stub_MMUInitStruct_t s, void *p) {
 	FILE *f;
 	if( p == NULL )
 		return STUB_MMU_ERROR;
@@ -40,7 +40,7 @@ stub_MMUStatus_t stub_mmuLoadDataMemory(const stub_MMUInitStruct_t s, const void
 }
 
 
-stub_MMUStatus_t stub_mmuSaveDataMemory(const stub_MMUInitStruct_t s, const void *p) {
+stub_MMUStatus_t stub_mmuSaveDataMemory(const stub_MMUInitStruct_t s, void *p) {
 	FILE *f;
 	if( p == NULL )
 		return STUB_MMU_ERROR;
@@ -87,12 +87,12 @@ void* stub_mmuInitDataMemory(const stub_MMUInitStruct_t s) {
 }
 
 
-void stub_mmuFreeCodeMemory(const void *p) {
+void stub_mmuFreeCodeMemory(void *p) {
 	if( p != NULL )
 		free(p);
 }
 
 
-inline void stub_mmuFreeDataMemory(const void *p) {
+inline void stub_mmuFreeDataMemory(void *p) {
 	stub_mmuFreeCodeMemory(p);
 }
