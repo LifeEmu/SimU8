@@ -2202,7 +2202,7 @@ void coreDoNMI(void) {
 }
 
 bool coreDoMI(uint8_t index) {
-	if( (PSW.field.ELevel <= 1) && (index < 59) ) {
+	if( (PSW.field.ELevel <= 1) && (PSW.field.MIE == 1) && (index < 59) ) {
 		ELR1 = PC;
 		ECSR1 = CSR;
 		EPSW1 = PSW;
