@@ -9,7 +9,7 @@ Not finished yet.
 **Compile test result:**
 - Compiler:  GCC (Rev3, Built by MSYS2 project) 14.1.0
 - Options: `-std=c99 -Wall -Os -fPIC -shared`
-- Result: 6 Warnings, 0 error(s)
+- Result: 0 Warning(s), 0 error(s)
 
 
 ## Dependencies
