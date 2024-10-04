@@ -27,7 +27,7 @@ MEMORY_STATUS memoryInit(stub_MMUFileID_t codeFileID, stub_MMUFileID_t dataFileI
 	};
 
 	if( (CodeMemory = stub_mmuInitCodeMemory(s)) == NULL ) {
-		return MEMORY_ALLOCATION_FAILED;
+		return MEMORY_ROM_MISSING;
 	}
 
 	if( (DataMemory = stub_mmuInitDataMemory(s)) == NULL ) {
@@ -41,6 +41,7 @@ MEMORY_STATUS memoryInit(stub_MMUFileID_t codeFileID, stub_MMUFileID_t dataFileI
 }
 
 // Saves data in *DataMemory into file
+// WARNING: This will overwrite existing file!!!
 MEMORY_STATUS memorySaveData(stub_MMUFileID_t dataFileID) {
 	stub_MMUInitStruct_t s = {
 		.dataMemoryID = dataFileID,
@@ -54,7 +55,6 @@ MEMORY_STATUS memorySaveData(stub_MMUFileID_t dataFileID) {
 }
 
 // Loads data memory from a binary file
-// WARNING: This will overwrite existing file!!!
 MEMORY_STATUS memoryLoadData(stub_MMUFileID_t dataFileID) {
 	stub_MMUInitStruct_t s = {
 		.dataMemoryID = dataFileID,

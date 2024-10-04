@@ -64,7 +64,7 @@ void* stub_mmuInitCodeMemory(const stub_MMUInitStruct_t s) {
 		return NULL;
 
 	if( stub_mmuLoadCodeMemory(s, p) != STUB_MMU_OK ) {
-		free(p);
+		free(p);	// here `p` is not NULL, so it's safe to ignore the warning
 		return NULL;
 	}
 
@@ -79,7 +79,7 @@ void* stub_mmuInitDataMemory(const stub_MMUInitStruct_t s) {
 		return p;
 
 	if( stub_mmuLoadDataMemory(s, p) != STUB_MMU_OK ) {
-		free(p);
+		free(p);	// here `p` is not NULL, so it's safe to ignore the warning
 		return NULL;
 	}
 
