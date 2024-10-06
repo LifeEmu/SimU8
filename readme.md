@@ -70,15 +70,12 @@ There are, however, some work for you to do:
 
 ## Notes
 - **MMU functions does not support watchpoints _yet_**. I _may_ include hooking ability in the future, but it may slow down the code further... However, you can easily add it yourself if you want.
-- **LCD shouldn't be a part of emulator core**. It will eventually be removed.
-- **There is no way to save/load core states _yet_**. Coming soon~
+- **There is no way to save/load core states _yet_**.
 - **_Headers have been rearranged_**.
 
 
 ## Changelog for this commit
-- **Changed the return value of `memoryInit`**. Now it properly reports `MEMORY_ROM_MISSING` when code memory file is not found.
-- **Improved some of the comments**.
-
+- **LCD module has been removed from the emulator core**. They'll go to test branches instead.
 
 ## Special Thanks
 - [Fraserbc](https://github.com/Fraserbc)
