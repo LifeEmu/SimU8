@@ -1,12 +1,14 @@
 # SimU8
 
-An nX-U8/100 simulator written in C. This has nothing to do with CASIO's `SimU8.dll`.
+An nX-U8/100 emulator written in C.  
+This emulator is mainly for emulating CASIO scientific calculators, and aims to be as portable as possible.  
+This has nothing to do with CASIO's `SimU8.dll`.
 
 Not finished yet.
 - Most instructions are implemented but not all of them are tested.
-- `SWI` is ~~not~~now implemented.
-- All the coprocessors instructions are not implemented.
-- Interrupts are ~~not~~ implemented ~~yet~~.
+- All the coprocessors instructions are **not** implemented.
+- `SWI` is now implemented.
+- Interrupts are implemented.
 
 ## Usage
 To use the code in your project, include the header in your source, and include corresponding source file when compiling.
@@ -17,7 +19,7 @@ Example: If you want to use features from "core", include `inc/core.h` in your s
 ## Testing
 **NOTE**: `testcore.c` uses `conio.h`, so it probably won't work unmodified under non-Windows system!
 
-**NOTE #2**: This test driver aims at emulating CASIO fx-ES PLUS hardware, so it would work the best with a ROM dump from a real calculator. With that being said, keyboard emulation is yet to be implemented.
+**NOTE #2**: _This_ test driver aims at emulating CASIO CWII hardware, so it would work the best with a ROM dump from a real calculator.
 
 - Put the binary you want to run into the root directory of this repository and rename it to `rom.bin`. (you can change the name of the file in `testcore.c`)
 - `cd` to the repository in `cmd` and run `<your compiler> testcore.c src/mmu.c src/core.c src/lcd.c <other compiler options>`.
@@ -26,25 +28,26 @@ Example: If you want to use features from "core", include `inc/core.h` in your s
 
 
 **Commands**:
-| Char | Function                                |
-| ---- | --------------------------------------- |
-| `r`  | Show registers                          |
-| `a`  | Show base addresses of allocated memory |
-| `s`  | Enable single-step mode                 |
-| `p`  | Resume execution ("unPause")            |
-| `b`  | Set & enable a breakpoint               |
-| `n`  | Disable the breakpoint                  |
-| `c`  | Reset core                              |
-| `d`  | Display VRAM                            |
-| `j`  | Jump to a new address                   |
-| `m`  | Show data memory                        |
-| `z`  | Zero RAM                                |
-| `w`  | Write to savestate file (experimental)  |
-| `e`  | Read from savestate file (experimental) |
+| Char | Function                                    |
+| ---- | ------------------------------------------- |
+| `r`  | show **R**egisters                          |
+| `a`  | show base **A**ddresses of allocated memory |
+| `s`  | enable **S**ingle-step mode                 |
+| `p`  | resume execution ("un**P**ause")            |
+| `b`  | set & enable a **B**reakpoint               |
+| `n`  | Disable the breakpoint ("**N**oBreak")      |
+| `c`  | Reset core ("**C**lear")                    |
+| `d`  | **D**isplay VRAM                            |
+| `j`  | **J**ump to a new address                   |
+| `m`  | show data **M**emory                        |
+| `z`  | **Z**ero RAM                                |
+| `w`  | **W**rite to savestate file (experimental)  |
+| `e`  | **R**ead from savestate file (experimental) |
+| `q`  | **Q**uit emulator                           |
 
 ## Credit
 - [Fraserbc on GitHub](https://github.com/Fraserbc) for knowledge about pipeline and bug reports
 - [gamingwithevets on GitHub](https://github.com/gamingwithevets) for many bug feedbacks
+- Zeroko, Tari, calc84maniac and c4ooo on Cemetech that helped me figure out how to display Braille in cmd
 - Z80 user manual and AMD architectural programmer's manual for information about flags and BCD instructions (why I put them here lol)
 - OKI/Lapis for making this little RISC core
-- Zeroko, Tari, calc84maniac and c4ooo on Cemetech that helped me figure out how to display Braille in cmd

@@ -20,11 +20,11 @@
 #include "src/SFR/keyboard.h"
 
 #define ROM_FILE_NAME "rom_999cncw_a_real.bin"
-#define CYCLE_SKIP 51200	// defines how many cycles the core go before checking for keyboard
+#define CYCLE_SKIP 5120	// defines how many cycles the core go before checking for keyboard
 #define DARK_PIXEL 'O'
 #define LIGHT_PIXEL ' '
 
-#define KEY_HOLD_FRAME 40
+#define KEY_HOLD_FRAME 30
 
 typedef enum {
 	KEY_1 = 0,
@@ -161,26 +161,26 @@ void setPix(int x, int y, int c) {
 void updateDisp() {
 	// status bar area
 /*
- * 123456781234567812345678123456781234567812345678123456781234567812345678123456781234567812345678
- * [S] [A]   M   STO  RCL    STAT  CMPLX  MAT  VCT   [D]  [R]  [G]    FIX  SCI   Math   v  ^   Disp
+ * 123456781234567812345678123456781234567812345678
+ * S A M STO RCL STAT CMPLX MAT VCT D R G FIX SCI Math v ^ Disp
  */
-	fputs(*(VBuf + 3) == DARK_PIXEL? "\n[S] " : "\n    ", stdout);
-	fputs(*(VBuf + 5) == DARK_PIXEL? "[A]   " : "      ", stdout);
-	fputs(*(VBuf + 8*1 + 3) == DARK_PIXEL? "M   " : "    ", stdout);
-	fputs(*(VBuf + 8*1 + 6) == DARK_PIXEL? "STO  " : "     ", stdout);
-	fputs(*(VBuf + 8*2 + 1) == DARK_PIXEL? "RCL    " : "       ", stdout);
-	fputs(*(VBuf + 8*3 + 1) == DARK_PIXEL? "STAT  " : "      ", stdout);
-	fputs(*(VBuf + 8*4 + 0) == DARK_PIXEL? "CMPLX  " : "       ", stdout);
-	fputs(*(VBuf + 8*5 + 1) == DARK_PIXEL? "MAT  " : "     ", stdout);
-	fputs(*(VBuf + 8*5 + 6) == DARK_PIXEL? "VCT   " : "      ", stdout);
-	fputs(*(VBuf + 8*7 + 2) == DARK_PIXEL? "[D]  " : "     ", stdout);
-	fputs(*(VBuf + 8*7 + 6) == DARK_PIXEL? "[R]  " : "     ", stdout);
-	fputs(*(VBuf + 8*8 + 3) == DARK_PIXEL? "[G]    " : "       ", stdout);
-	fputs(*(VBuf + 8*8 + 7) == DARK_PIXEL? "FIX  " : "     ", stdout);
-	fputs(*(VBuf + 8*9 + 2) == DARK_PIXEL? "SCI   " : "      ", stdout);
-	fputs(*(VBuf + 8*10 + 1) == DARK_PIXEL? "Math   " : "       ", stdout);
-	fputs(*(VBuf + 8*10 + 4) == DARK_PIXEL? "v  " : "   ", stdout);
-	fputs(*(VBuf + 8*11 + 0) == DARK_PIXEL? "^   " : "    ", stdout);
+	fputs(*(VBuf + 3) == DARK_PIXEL? "\nS " : "\n  ", stdout);
+	fputs(*(VBuf + 5) == DARK_PIXEL? "A " : "  ", stdout);
+	fputs(*(VBuf + 8*1 + 3) == DARK_PIXEL? "M " : "  ", stdout);
+	fputs(*(VBuf + 8*1 + 6) == DARK_PIXEL? "STO " : "    ", stdout);
+	fputs(*(VBuf + 8*2 + 1) == DARK_PIXEL? "RCL " : "    ", stdout);
+	fputs(*(VBuf + 8*3 + 1) == DARK_PIXEL? "STAT " : "     ", stdout);
+	fputs(*(VBuf + 8*4 + 0) == DARK_PIXEL? "CMPLX " : "      ", stdout);
+	fputs(*(VBuf + 8*5 + 1) == DARK_PIXEL? "MAT " : "    ", stdout);
+	fputs(*(VBuf + 8*5 + 6) == DARK_PIXEL? "VCT " : "    ", stdout);
+	fputs(*(VBuf + 8*7 + 2) == DARK_PIXEL? "D " : "  ", stdout);
+	fputs(*(VBuf + 8*7 + 6) == DARK_PIXEL? "R " : "  ", stdout);
+	fputs(*(VBuf + 8*8 + 3) == DARK_PIXEL? "G " : "  ", stdout);
+	fputs(*(VBuf + 8*8 + 7) == DARK_PIXEL? "FIX " : "    ", stdout);
+	fputs(*(VBuf + 8*9 + 2) == DARK_PIXEL? "SCI " : "    ", stdout);
+	fputs(*(VBuf + 8*10 + 1) == DARK_PIXEL? "Math " : "     ", stdout);
+	fputs(*(VBuf + 8*10 + 4) == DARK_PIXEL? "v " : "  ", stdout);
+	fputs(*(VBuf + 8*11 + 0) == DARK_PIXEL? "^ " : "  ", stdout);
 	fputs(*(VBuf + 8*11 + 3) == DARK_PIXEL? "Disp\n" : "    \n", stdout);
 
 	// dot matrix area
@@ -288,7 +288,7 @@ int main(void) {
 	do {
 		while( (cycle < CYCLE_SKIP) || !_kbhit() ) {
 			if( !isCommand ) {
-				if( StandbyState != STANDBY_STP ) {
+				if( isSingleStep || (StandbyState != STANDBY_STP) ) {
 					switch( coreStep() ) {
 					case CORE_ILLEGAL_INSTRUCTION:
 						coreDispRegs();
@@ -312,8 +312,11 @@ int main(void) {
 						break;
 					}
 					cycle += CycleCount;
-
-					// interrupt handling
+				}
+/*				else {
+					break;
+				}
+*/					// interrupt handling
 					// check first
 					checkTimerInterrupt();
 					checkKeyboardInterrupt();
@@ -330,10 +333,6 @@ int main(void) {
 						default:
 							break;
 					}
-				}
-				else {
-					break;
-				}
 
 				// breakpoint
 				if( hasBreakpoint && (CSR == breakCSR) && (PC == breakPC)) {
@@ -475,6 +474,22 @@ int main(void) {
 				puts("Loading failed...");
 			else
 				puts("Loading complete!");
+			break;
+
+		case 'k':
+			uint8_t ki, ko;
+			puts("\nKeyboard...(k)\nInput KI & KO bit to connect together(use space to split: `KI KO`):");
+			fflush(stdin);
+			scanf("%d %d", &ki, &ko);
+			if( (ki < 8) && (ko < 8) ) {
+				currKey = ki * 8 + ko;
+				keyDownFrame = KEY_HOLD_FRAME;
+//				coreUpdateKeyboard();
+				printf("(KI, KO) = (%d, %d) registered.\n", ki, ko);
+			}
+			else {
+				puts("Invalid KI/KO!");
+			}
 			break;
 
 		default:

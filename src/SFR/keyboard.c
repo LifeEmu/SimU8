@@ -43,10 +43,12 @@ inline void cleanKeyboardIRQ(void) {
 
 
 void coreUpdateKeyboard(void) {
-	*KI = getKI(*KO & ~*KOM);
-	if( ~*KI & *KIM ) {
+	uint16_t ki;
+	ki = getKI(*KO & ~*KOM);
+	if( ~ki & *KIM ) {
 		*IRQ0 |= 0x02;
 	}
+	*KI = ki;
 }
 
 
@@ -54,10 +56,12 @@ void coreUpdateKeyboard(void) {
 
 // Please repeatedly call it on another thread or something.
 void updateKeyboard(void) {
-	*KI = getKI(*KO & ~*KOM);
-	if( ~*KI & *KIM ) {
+	uint16_t ki;
+	ki = getKI(*KO & ~*KOM);
+	if( ~ki & *KIM ) {
 		*IRQ0 |= 0x02;
 		exitStandby();
 	}
+	*KI = ki;
 }
 
