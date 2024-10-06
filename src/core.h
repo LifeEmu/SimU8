@@ -9,7 +9,7 @@
 
 
 // Defining this makes it emulate nX-U16/100
-// differences: cycle count, SP word alignment, EPSW interacting, etc.
+// differences: cycle count, SP word alignment, EPSW interacting behavior, etc.
 //#define CORE_IS_U16
 
 // macros for compatibility

@@ -33,7 +33,7 @@ typedef struct {
 ///		`codeMemorySize` specifies size in bytes.
 /// @param p Points to code memory
 /// @returns `STUB_MMU_OK` on success.
-extern stub_MMUStatus_t stub_mmuLoadCodeMemory(const stub_MMUInitStruct_t s, const void *p);
+extern stub_MMUStatus_t stub_mmuLoadCodeMemory(const stub_MMUInitStruct_t s, void *p);
 
 /// @brief Load data memory.
 /// 		You need to implement this function YOURSELF.
@@ -42,7 +42,7 @@ extern stub_MMUStatus_t stub_mmuLoadCodeMemory(const stub_MMUInitStruct_t s, con
 ///		`dataMemorySize` specifies size in bytes.
 /// @param p A pointer to data memory.
 /// @returns `STUB_MMU_OK` on success.
-extern stub_MMUStatus_t stub_mmuLoadDataMemory(const stub_MMUInitStruct_t s, const void *p);
+extern stub_MMUStatus_t stub_mmuLoadDataMemory(const stub_MMUInitStruct_t s, void *p);
 
 /// @brief Save data memory.
 /// 		You need to implement this function YOURSELF.
@@ -50,7 +50,7 @@ extern stub_MMUStatus_t stub_mmuLoadDataMemory(const stub_MMUInitStruct_t s, con
 ///		`dataMemorySize` specifies size in bytes.
 /// @param p A pointer to data memory.
 /// @returns `STUB_MMU_OK` on success.
-extern stub_MMUStatus_t stub_mmuSaveDataMemory(const stub_MMUInitStruct_t s, const void *p);
+extern stub_MMUStatus_t stub_mmuSaveDataMemory(const stub_MMUInitStruct_t s, void *p);
 
 /// @brief Initialize code memory.
 /// 		You need to implement this function YOURSELF.
@@ -69,12 +69,12 @@ extern void* stub_mmuInitDataMemory(const stub_MMUInitStruct_t s);
 /// @brief Free/Release code memory.
 /// 		You need to implement this function YOURSELF.
 /// @param p A pointer to code memory.
-extern void stub_mmuFreeCodeMemory(const void *p);
+extern void stub_mmuFreeCodeMemory(void *p);
 
 /// @brief Free/Release data memory.
 /// 		You need to implement this function YOURSELF.
 /// @param p A pointer to data memory.
-extern void stub_mmuFreeDataMemory(const void *p);
+extern void stub_mmuFreeDataMemory(void *p);
 
 
 #endif

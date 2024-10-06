@@ -724,9 +724,8 @@ CORE_STATUS coreStep(void) {
 
 			dest >>= src;
 			PSW.field.C = dest & 0x01;
-			dest = (dest >> 1) & 0xff;
 
-			GR.rs[regNumDest] = (dest & 0xff);
+			GR.rs[regNumDest] = ((dest >> 1) & 0xff);
 
 			break;
 
@@ -1145,9 +1144,8 @@ CORE_STATUS coreStep(void) {
 
 			dest >>= src;
 			PSW.field.C = dest & 0x01;
-			dest = (dest >> 1) & 0xff;
 
-			GR.rs[regNumDest] = (dest & 0xff);
+			GR.rs[regNumDest] = ((dest >> 1) & 0xff);
 
 			break;
 
@@ -1360,7 +1358,7 @@ CORE_STATUS coreStep(void) {
 			// MOV EPSW, Rm
 			if( PSW.field.ELevel != 0 )
 				_getCurrEPSW()->raw = GR.rs[regNumSrc];
-			CycleCount = 2;
+			CycleCount = 1;
 			break;
 
 		case 0xad:
@@ -1759,7 +1757,7 @@ CORE_STATUS coreStep(void) {
 				break;
 			}
 			// MUL ERn, Rm
-			CycleCount = 8;
+			CycleCount = 9;
 			dest = GR.rs[regNumDest] * GR.rs[regNumSrc];
 			PSW.field.Z = IS_ZERO(dest);
 			GR.ers[regNumDest >> 1] = dest & 0xffff;
@@ -1818,7 +1816,7 @@ CORE_STATUS coreStep(void) {
 			// DIV ERn, Rm
 			dest = GR.ers[regNumDest >> 1];
 			src = GR.rs[regNumSrc];
-			CycleCount = 16;
+			CycleCount = 17;
 			PSW.field.Z = IS_ZERO(dest);
 			PSW.field.C = 0;
 			if( src == 0 ) {
@@ -1830,7 +1828,7 @@ CORE_STATUS coreStep(void) {
 			}
 			// Else both number are not zero
 			GR.rs[regNumSrc] = (dest % src) & 0xff;
-			GR.ers[regNumDest] = (dest / src) & 0xffff;
+			GR.ers[regNumDest >> 1] = (dest / src) & 0xffff;
 			break;
 
 		case 0xfa:
@@ -2153,7 +2151,7 @@ CORE_STATUS coreStep(void) {
 						coreReset();
 					}
 					else {
-						ELR2 = (PC + 2) & 0xfffe;
+						ELR2 = PC;
 						ECSR2 = CSR;
 						EPSW2 = PSW;
 						PSW.field.ELevel = 2;
@@ -2194,7 +2192,7 @@ exit:
 
 
 void coreDoNMI(void) {
-	ELR2 = (PC + 2) & 0xfffe;
+	ELR2 = PC;
 	ECSR2 = CSR;
 	EPSW2 = PSW;
 	PSW.field.ELevel = 2;
@@ -2204,8 +2202,8 @@ void coreDoNMI(void) {
 }
 
 bool coreDoMI(uint8_t index) {
-	if( (PSW.field.ELevel <= 1) && (index < 59) ) {
-		ELR1 = (PC + 2) & 0xfffe;
+	if( (PSW.field.ELevel <= 1) && (PSW.field.MIE == 1) && (index < 59) ) {
+		ELR1 = PC;
 		ECSR1 = CSR;
 		EPSW1 = PSW;
 		PSW.field.ELevel = 1;
@@ -2220,7 +2218,7 @@ bool coreDoMI(uint8_t index) {
 
 void coreDoSWI(uint8_t index) {
 	if( index < 64 ) {
-		ELR1 = (PC + 2) & 0xfffe;
+		ELR1 = PC;
 		ECSR1 = CSR;
 		EPSW1 = PSW;
 		PSW.field.ELevel = 1;
