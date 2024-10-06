@@ -4,21 +4,33 @@
 #include <ctype.h>
 #include <conio.h>
 
+#include <pthread.h>	// POSIX threads
+#include <unistd.h>	// sleep, usleep
+
+#include "src/memmap.h"
 #include "src/mmu.h"
 #include "src/core.h"
 #include "src/lcd.h"
-#include "src/memmap.h"
 
-#define ROM_FILE_NAME "rom.bin"
-#define CYCLE_SKIP 51200	// defines how many cycles the core go before checking for keyboard
+#include "src/SFR/sfr.h"
+#include "src/SFR/standby.h"
+#include "src/SFR/interrupt.h"
+#include "src/SFR/timer.h"
+#include "src/SFR/keyboard.h"
+
+
+#define ROM_FILE_NAME "rom_991cnx_c_real.bin"
+#define CYCLE_SKIP 5120	// defines how many cycles the core go before checking for keyboard
 #define DARK_PIXEL 'O'
 #define LIGHT_PIXEL ' '
 
+#define KEY_HOLD_FRAME 30
 
 unsigned char* VBuf = NULL;
 
 
 // dummy SFR implementation
+/*
 uint8_t SFRHandler(uint32_t address, uint8_t data, bool isWrite) {
 	uint8_t *p = (uint8_t *)DataMemory + address - ROM_WINDOW_SIZE;
 
@@ -30,6 +42,119 @@ uint8_t SFRHandler(uint32_t address, uint8_t data, bool isWrite) {
 		return *p;
 	}
 }
+*/
+
+typedef enum {
+	KEY_1 = 0,
+	KEY_2,
+	KEY_3,
+	KEY_PLUS,	// +
+	KEY_MINUS,	// -
+	KEY_EQ = 6,	// =
+
+	KEY_4 = 8,
+	KEY_5,
+	KEY_6,
+	KEY_MUL,	// *
+	KEY_DIV,	// /
+	KEY_ANS = 14,	// Ans
+
+	KEY_7 = 16,
+	KEY_8,
+	KEY_9,
+	KEY_DEL,
+	KEY_AC,
+	KEY_x10_X = 22,	// x10^X
+
+	KEY_RCL = 24,
+	KEY_ENG,
+	KEY_LPAR,	// (
+	KEY_RPAR,	// )
+	KEY_S_D,	// S<>D
+	KEY_M_PLUS,	// M+
+	KEY_DOT,	// .
+
+	KEY_NEG = 32,	// (-)
+	KEY_DMS,
+	KEY_HYP,
+	KEY_SIN,
+	KEY_COS,
+	KEY_TAN,
+	KEY_0,
+
+	KEY_FRAC = 40,
+	KEY_SQRT,
+	KEY_SQ,		// x^2
+	KEY_POW,	// x^[]
+	KEY_LOG,
+	KEY_LN,
+
+	KEY_CALC = 48,
+	KEY_INTEGRAL,
+	KEY_LEFT,
+	KEY_DOWN,
+	KEY_INV,	// x^-1
+	KEY_LOG_NATURAL,// log_[]
+
+	KEY_SHIFT = 56,
+	KEY_ALPHA,
+	KEY_UP,
+	KEY_RIGHT,
+	KEY_MODE
+} key_t;
+
+
+volatile int keyDownFrame;
+volatile key_t currKey;
+
+uint16_t getKI(uint16_t maskedKO) {
+	uint16_t KI = 0xFFFF;
+	uint8_t KObit;
+
+	if( maskedKO == 0 ) {
+		return 0xFFFF;
+	}
+
+//	puts("[getKI] maskedKO not zero");
+
+	if( keyDownFrame != 0 ) {
+		--keyDownFrame;
+
+		// Find lowest set bit in KO
+		for( KObit = 0; KObit < 8; ++KObit ) {
+			if( maskedKO & (1 << KObit) ) {
+				printf("[getKI] Found bit %d to be set in KO!\n", KObit);
+				if( (currKey & 7) == KObit ) {
+					KI &= ~(1 << (currKey >> 3));
+				}
+			}
+		}
+		printf("[getKI] KI = %04X.\n", KI);
+		return KI;
+	}
+
+	return 0xFFFF;
+}
+
+pthread_t periphThread;
+volatile int isSingleStep = false;
+
+void *updatePeriphrals(void *params) {
+	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);	// allow other threads to cancel this thread
+	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);	// only cancel on cancellation points
+
+	while( 1 ) {
+		usleep(16666);	// 16.7ms
+		updateTimer();
+		usleep(16666);	// 16.7ms
+		updateKeyboard();
+		do {
+			pthread_testcancel();
+		} while( isSingleStep );
+	}
+}
+
+
 
 unsigned char* createVBuf(int x, int y) {
 	return (unsigned char*)malloc(x * y);
@@ -130,12 +255,23 @@ void coreDispRegs(void) {
 	printf("\tEPSW2 = %02Xh\n", EPSW2.raw);
 	printf("\tEPSW3 = %02Xh\n", EPSW3.raw);
 
+	switch( StandbyState ) {
+		case STANDBY_HLT:
+			puts("\t[standby] HLT");
+			break;
+		case STANDBY_STP:
+			puts("\t[standby] STP");
+			break;
+		default:
+			break;
+	}
+
 	puts("========       End       ========");
 }
 
 
 int main(void) {
-	int isSingleStep = 1, hasBreakpoint = 0, isCommand = 0, line, offset;
+	int /*isSingleStep = 1,*/ hasBreakpoint = 0, isCommand = 0, line, offset;
 	uint8_t tempByte;
 	EA_t breakPC, jumpPC, dumpAR;
 	SR_t breakCSR, jumpCSR, dumpDSR;
@@ -164,6 +300,11 @@ int main(void) {
 		return -1;
 	}
 
+	initTimer();
+	initKeyboard();
+
+	pthread_create(&periphThread, NULL, updatePeriphrals, NULL);	// default config, no parameters
+
 	printf("CodePointer = %p, DataPointer = %p\nWaiting for a key...\n", CodeMemory, DataMemory);
 
 	coreReset();
@@ -175,29 +316,53 @@ int main(void) {
 	do {
 		while( (cycle < CYCLE_SKIP) || !_kbhit() ) {
 			if( !isCommand ) {
-				switch( coreStep() ) {
-				case CORE_ILLEGAL_INSTRUCTION:
-					coreDispRegs();
-					isSingleStep = 1;
-					printf("\n!!! Illegal Instruction !!!\n");
-					printf("CSR:PC = %01X:%04Xh.\n", CSR, PC);
-					puts("Single step mode is activated. Press 'c' to reset core.");
-					break;
+				if( StandbyState != STANDBY_STP ) {
+					switch( coreStep() ) {
+					case CORE_ILLEGAL_INSTRUCTION:
+						coreDispRegs();
+						isSingleStep = 1;
+						printf("\n!!! Illegal Instruction !!!\n");
+						printf("CSR:PC = %01X:%04Xh.\n", CSR, PC);
+						puts("Single step mode is activated. Press 'c' to reset core.");
+						break;
 
-				case CORE_READ_ONLY:
-					puts("\nA write to read-only region has happened.");
-					printf("CSR:PC = %01X:%04Xh.\n", CSR, PC);
-					break;
+					case CORE_READ_ONLY:
+						puts("\nA write to read-only region has happened.");
+						printf("CSR:PC = %01X:%04Xh.\n", CSR, PC);
+						break;
 
-				case CORE_UNIMPLEMENTED:
-					puts("\nAn unimplemented instruction has been skipped.");
-					printf("Address = %01X%04Xh.\n", CSR, (PC - 2) & 0x0ffff);
-					break;
+					case CORE_UNIMPLEMENTED:
+						puts("\nAn unimplemented instruction has been skipped.");
+						printf("Address = %01X%04Xh.\n", CSR, (PC - 2) & 0x0ffff);
+						break;
 
-				default:
+					default:
+						break;
+					}
+					cycle += CycleCount;
+
+					// interrupt handling
+					// check first
+					checkTimerInterrupt();
+					checkKeyboardInterrupt();
+
+					// handle interrupts
+					switch( handleInterrupt() ) {
+						case TIMER_INT_INDEX:
+							cleanTimerIRQ();
+							break;
+						case KEYBOARD_INT_INDEX:
+							puts("[testcore] Keyboard IRQ cleaned.");
+							cleanKeyboardIRQ();
+							break;
+						default:
+							break;
+					}
+				}
+				else {
 					break;
 				}
-				cycle += CycleCount;
+
 
 				// breakpoint
 				if( hasBreakpoint && (CSR == breakCSR) && (PC == breakPC)) {
@@ -243,6 +408,7 @@ int main(void) {
 			// continue
 			puts("\nExecution resumed (p)\nPress 's' to pause and enter single step mode.");
 			isSingleStep = 0;
+			StandbyState = STANDBY_NONE;
 			isCommand = 0;
 			break;
 
@@ -336,14 +502,38 @@ int main(void) {
 				puts("Loading complete!");
 			break;
 
+		case 'k':
+			puts("\nKeyboard...(k)\nInput 8*(KI-1) + KO-1 for a key:");
+			fflush(stdin);
+			scanf("%d", &currKey);
+			keyDownFrame = KEY_HOLD_FRAME;
+			printf("(KI %d, KO %d) is registered.\n", (currKey >> 3) +1, (currKey & 7) + 1);
+			updateKeyboard();
+			break;
+
 		default:
 			isCommand = 0;
 			break;
 		}
 	} while( key != 'q' );
 
-	memoryFree();
-	freeVBuf(VBuf);
-	puts("Successifully exited without crashing.");
+	puts("Quitting...");
+
+	void* retVal;
+	if( pthread_cancel(periphThread) != 0 ) {
+		puts("Unable to stop peripheral thread!");
+		freeVBuf(VBuf);
+		puts("Exited without freeing memory...");
+	}
+	else {
+		pthread_join(periphThread, &retVal);
+		if( retVal != PTHREAD_CANCELED ) {
+			puts("Peripheral thread was not stopped!");
+		}
+		memoryFree();
+		freeVBuf(VBuf);
+		puts("Successifully exited without crashing.");
+	}
+
 	return 0;
 }
