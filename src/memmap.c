@@ -62,10 +62,10 @@ static uint8_t VRAMHandler(uint32_t address, uint8_t data, bool isWrite) {
 // default memory map, for real ES+
 const DataMemoryRegion_t DATA_MEMORY_MAP[DATA_MEMORY_REGION_COUNT] = {
 //	start		end +1		handler
-	{0x00000,	0x08000,	romWindowHandler},	// ROM window handler
-	{0x0f800,	0x0fa00,	VRAMHandler},		// ES+ VRAM
 	{0x08000,	0x08e00,	RAMHandler},		// ES+ RAM
+	{0x0f800,	0x0fa00,	VRAMHandler},		// ES+ VRAM
 	{0x0f000,	0x0f050,	SFRHandler},		// ES+ SFRs
+	{0x00000,	0x08000,	romWindowHandler},	// ROM window handler
 	{0x10000,	0x20000,	codeSegHandler},	// segment 1
 	{0x80000,	0xa0000,	codeSegHandler},	// segment 8+
 

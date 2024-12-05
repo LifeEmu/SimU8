@@ -1817,7 +1817,7 @@ CORE_STATUS coreStep(void) {
 			dest = GR.ers[regNumDest >> 1];
 			src = GR.rs[regNumSrc];
 			CycleCount = 17;
-			PSW.field.Z = IS_ZERO(dest);
+			PSW.field.Z = dest < src? 1 : 0;	// if dividend < divisor, the result will be 0
 			PSW.field.C = 0;
 			if( src == 0 ) {
 				// Divisor is 0
