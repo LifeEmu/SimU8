@@ -5,6 +5,10 @@
 // maskable interrupt number for timer interrupt
 #define TIMER_INT_INDEX 4
 
+// timer counter increment step
+// will be added to timer counter when `updateTimer` is called
+#define TIMER_STEP 144
+
 
 // -------- core thread
 
