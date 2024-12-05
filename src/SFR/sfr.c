@@ -74,9 +74,11 @@ uint8_t SFRHandler(uint32_t address, uint8_t data, bool isWrite) {
 
 		case SFR_TMSTR0:
 			if( isWrite )
-				*p = (data & 1);
+				*p |= (data & 1);	// `TMSTR0` is a write-only register
 			return 0;
 			break;
+
+// TODO: Implement `TMSTP0` and `TMSTAT0`?
 
 		case SFR_KI0:
 			return 0xE7;

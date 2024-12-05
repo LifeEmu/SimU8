@@ -46,16 +46,17 @@ void updateTimer(void) {
 	uint16_t counter = *TM0C;
 //	printf("[timer] TM0C = %04X\n", counter);
 	if( *TMSTR0 & 1 ) {
-		if( ++counter >= *TM0D ) {
+		counter += TIMER_STEP;
+		if( counter >= *TM0D ) {
 //			puts("[timer] Interrupt pending!");
-//			*TM0C = 0;	// reset counter
+			*TM0C = 0;	// reset counter
 			*IRQ0 |= 0x20;	// set IRQ
 			if( *IE0 & 0x20 ) {
 				exitStandby();
 			}
 		}
 		else {
-			*TM0C++;
+			*TM0C = counter;
 		}
 	}
 }
