@@ -7,7 +7,7 @@
 
 // timer counter increment step
 // will be added to timer counter when `updateTimer` is called
-#define TIMER_STEP 144
+#define TIMER_STEP 16	// Assume 1000+ updates per second
 
 
 // -------- core thread
