@@ -802,6 +802,7 @@ CORE_STATUS coreStep(void) {
 						break;
 
 					case 0x9050:
+					case 0x9070:	// 9E70
 						// L Rn, [EA+]
 						src = EA;
 						EA += 1; isEAInc = true;
@@ -910,7 +911,8 @@ CORE_STATUS coreStep(void) {
 				CycleCount += EAIncDelay;
 			}
 			else {
-				switch( codeWord & 0xf1ff ) {
+//				switch( codeWord & 0xf1ff ) {
+				switch( codeWord & 0xf0ff ) {	// disable 0 bits check
 					case 0x9013:
 						// ST ERn, [adr]
 						// fetch destination address
@@ -930,6 +932,14 @@ CORE_STATUS coreStep(void) {
 						EA = (EA + 2) & 0xfffe; isEAInc = true;
 						break;
 
+					// undocumented instruction
+					case 0x9093:
+						// ST ERn, [EA?]
+						// probably fetches from an undefined position (bit 0 = Dadr, 1 = EA, 2 = EA+)
+						dest = EA;
+//						EA = (EA + 2) & 0xfffe; isEAInc = true;
+						break;
+
 					default:
 						retVal = CORE_ILLEGAL_INSTRUCTION;
 						goto exit;
@@ -946,19 +956,36 @@ CORE_STATUS coreStep(void) {
 
 		case 0x94:
 			src = EA;
-			switch( codeWord & 0xf3ff ) {
+//			switch( codeWord & 0xf3ff ) {
+			switch( codeWord & 0xf0ff ) {	// bypass 0 bits check
 				case 0x9034:
 					// L XRn, [EA]
 					break;
 
 				case 0x9054:
+				// undocumented 9E74
+				case 0x9074:
 					// L XRn, [EA+]
 					EA = (EA + 4) & 0xfffe;
 					isEAInc = true;
 					break;
 
+				// 9E64
+				case 0x9004:
+				case 0x9024:
+				case 0x9044:
+				case 0x9064:
+				case 0x9084:
+				case 0x90A4:
+				case 0x90C4:
+				case 0x90E4:
+					// ST XRn, ERm?
+					src = GR.ers[regNumSrc >> 2];
+					break;
+
+
 				default:
-					retVal = CORE_ILLEGAL_INSTRUCTION;
+//					retVal = CORE_ILLEGAL_INSTRUCTION;	// 9594, should do nothing since it refers to an illegal operand
 					goto exit;
 			}
 
@@ -976,7 +1003,8 @@ CORE_STATUS coreStep(void) {
 
 		case 0x95:
 			dest = EA;
-			switch( codeWord & 0xf3ff ) {
+//			switch( codeWord & 0xf3ff ) {
+			switch( codeWord & 0xf0ff ) {	// bypass lower 0 bits check
 				case 0x9035:
 					// ST XRn, [EA]
 					break;
@@ -985,6 +1013,19 @@ CORE_STATUS coreStep(void) {
 					// ST XRn, [EA+]
 					EA = (EA + 4) & 0xfffe;
 					isEAInc = true;
+					break;
+
+				// 9E65
+				case 0x9005:
+				case 0x9025:
+				case 0x9045:
+				case 0x9065:
+				case 0x9085:
+				case 0x90A5:
+				case 0x90C5:
+				case 0x90E5:
+					// ST XRn, ERm?
+					dest = GR.ers[regNumSrc >> 2];
 					break;
 
 				default:
@@ -1030,9 +1071,10 @@ CORE_STATUS coreStep(void) {
 			GR.qrs[regNumDest >> 3] = dest;
 			break;
 
-		case 0x97:
+		case 0x97:	// 9E67
 			dest = EA;
-			switch( codeWord & 0xf7ff ) {
+//			switch( codeWord & 0xf7ff ) {
+			switch( codeWord & 0xf0ff ) {	// 9E67
 				case 0x9037:
 					// ST QRn, [EA]
 					break;
@@ -1041,6 +1083,18 @@ CORE_STATUS coreStep(void) {
 					// ST QRn, [EA+]
 					EA = (EA + 8) & 0xfffe;
 					isEAInc = true;
+					break;
+
+				case 0x9007:
+				case 0x9027:
+				case 0x9047:
+				case 0x9067:
+				case 0x9087:
+				case 0x90A7:
+				case 0x90C7:
+				case 0x90E7:
+					// ST QRn, ERm?
+					dest = GR.ers[regNumSrc >> 2];
 					break;
 
 				default:
@@ -1086,10 +1140,10 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0x9a:
-			if( (codeWord & 0x0080) != 0x0000 ) {
-				retVal = CORE_ILLEGAL_INSTRUCTION;
-				break;
-			}
+//			if( (codeWord & 0x0080) != 0x0000 ) {
+//				retVal = CORE_ILLEGAL_INSTRUCTION;
+//				break;
+//			}
 			// SLL Rn, #width
 			CycleCount = 1 + EAIncDelay;
 			dest = GR.rs[regNumDest];
@@ -1097,11 +1151,11 @@ CORE_STATUS coreStep(void) {
 			GR.rs[regNumDest] = _ALU_SLL(dest, src);
 			break;
 
-		case 0x9b:
-			if( (codeWord & 0x0080) != 0x0000 ) {
-				retVal = CORE_ILLEGAL_INSTRUCTION;
-				break;
-			}
+		case 0x9b:	// 9C9B
+//			if( (codeWord & 0x0080) != 0x0000 ) {
+//				retVal = CORE_ILLEGAL_INSTRUCTION;
+//				break;
+//			}
 			// SLLC Rn, #width
 			CycleCount = 1 + EAIncDelay;
 			src = regNumSrc;
@@ -1231,11 +1285,11 @@ CORE_STATUS coreStep(void) {
 			CycleCount = 1;
 			break;
 
-		case 0xa3:
-			if( (codeWord & 0x00f0) != 0x0000 ) {
-				retVal = CORE_ILLEGAL_INSTRUCTION;
-				break;
-			}
+		case 0xa3:	// AA73
+//			if( (codeWord & 0x00f0) != 0x0000 ) {
+//				retVal = CORE_ILLEGAL_INSTRUCTION;
+//				break;
+//			}
 			// MOV Rn, PSW
 			GR.rs[regNumDest] = PSW.raw;
 			CycleCount = 1;
@@ -1337,7 +1391,9 @@ CORE_STATUS coreStep(void) {
 				CycleCount = 1;
 				break;
 			}
-			retVal = CORE_ILLEGAL_INSTRUCTION;
+			// AB2A
+			// Illegal instruction but dunno what it does
+//			retVal = CORE_ILLEGAL_INSTRUCTION;
 			break;
 
 		case 0xab:
@@ -1363,7 +1419,8 @@ CORE_STATUS coreStep(void) {
 
 		case 0xad:
 			if( (codeWord & 0x01f0) != 0x0000 ) {
-				retVal = CORE_ILLEGAL_INSTRUCTION;
+				// A26D
+//				retVal = CORE_ILLEGAL_INSTRUCTION;	// illegal opcode, but don't know what it does
 				break;
 			}
 			// MOV ELR, ERm
@@ -1410,7 +1467,9 @@ CORE_STATUS coreStep(void) {
 		case 0xbd:
 		case 0xbe:
 		case 0xbf:
-			switch( codeWord & 0x01c0 ) {
+			// B9B8, BBBA, BDBC, B163
+//			switch( codeWord & 0x01c0 ) {
+			switch( codeWord & 0x00c0 ) {	// disable 0 bits check
 				case 0x0000:
 					// L ERn, disp6[BP]
 					src = GR.ers[12 >> 1];		// src = ER12
@@ -1706,10 +1765,10 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xf0:
-			if( (codeWord & 0x00f0) != 0x0000 ) {
-				retVal = CORE_ILLEGAL_INSTRUCTION;
-				break;
-			}
+//			if( (codeWord & 0x00f0) != 0x0000 ) {
+//				retVal = CORE_ILLEGAL_INSTRUCTION;
+//				break;
+//			}
 			// B Cadr
 			PC = memoryGetCodeWord(CSR, PC) & 0xfffe;
 			CSR = regNumDest;
@@ -1717,10 +1776,10 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xf1:
-			if( (codeWord & 0x00f0) != 0x0000 ) {
-				retVal = CORE_ILLEGAL_INSTRUCTION;
-				break;
-			}
+//			if( (codeWord & 0x00f0) != 0x0000 ) {
+//				retVal = CORE_ILLEGAL_INSTRUCTION;
+//				break;
+//			}
 			// BL Cadr
 			LR = (PC + 2) & 0xfffe;
 			LCSR = CSR;
@@ -1730,20 +1789,20 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xf2:
-			if( (codeWord & 0x0f10) != 0x0000 ) {
-				retVal = CORE_ILLEGAL_INSTRUCTION;
-				break;
-			}
+//			if( (codeWord & 0x0f10) != 0x0000 ) {
+//				retVal = CORE_ILLEGAL_INSTRUCTION;
+//				break;
+//			}
 			// B ERn
 			PC = GR.ers[regNumSrc >> 1] & 0xfffe;
 			CycleCount = 2 + EAIncDelay;
 			break;
 
 		case 0xf3:
-			if( (codeWord & 0x0f10) != 0x0000 ) {
-				retVal = CORE_ILLEGAL_INSTRUCTION;
-				break;
-			}
+//			if( (codeWord & 0x0f10) != 0x0000 ) {
+//				retVal = CORE_ILLEGAL_INSTRUCTION;
+//				break;
+//			}
 			// BL ERn
 			LR = PC;	// Pc has been incremented and this instruction is 1 word long
 			LCSR = CSR;
