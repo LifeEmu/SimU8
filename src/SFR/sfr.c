@@ -12,6 +12,10 @@
 #define getSFR(SFR) ((volatile uint8_t *)DataMemory - ROM_WINDOW_SIZE + SFR)
 
 
+// external VRAM
+extern uint8_t LCDBuffer[256/8*64*2];
+
+
 static inline uint8_t _directRW(volatile uint8_t *p, uint8_t data, bool isWrite) {
 	if( isWrite ) {
 		*p = data;
@@ -22,14 +26,14 @@ static inline uint8_t _directRW(volatile uint8_t *p, uint8_t data, bool isWrite)
 uint8_t SFRHandler(uint32_t address, uint8_t data, bool isWrite) {
 	volatile uint8_t *p = (volatile uint8_t *)DataMemory - ROM_WINDOW_SIZE + address;
 
-/*
+
 	if( address >= 0xf800 ) {
 		if( *getSFR(0xf037) & 0x04 ) {
-			return _directRW(LCDBuffer + LCD_BUFFER_BITPLANE_SIZE + address - ROM_WINDOW_SIZE - 0xf800, data, isWrite);
+			return _directRW(LCDBuffer + 256/8*64 + address - 0xf800, data, isWrite);
 		}
-		return _directRW(LCDBuffer + address - ROM_WINDOW_SIZE - 0xf800, data, isWrite);
+		return _directRW(LCDBuffer + address - 0xf800, data, isWrite);
 	}
-*/
+
 	switch( address ) {
 		case SFR_DSR:
 			if( isWrite )
@@ -63,25 +67,33 @@ uint8_t SFRHandler(uint32_t address, uint8_t data, bool isWrite) {
 			break;
 
 		case SFR_TM0D:
+		case SFR_TM0D + 1:	// 16-bit SFR
 			return _directRW(p, data, isWrite);
 			break;
 
 		case SFR_TM0C:
-			if( isWrite )
+			if( isWrite ) {
 				*p = 0;
+				*(p + 1) = 0;
+			}
+			return *p;
+			break;
+
+		case SFR_TM0C + 1:
+			if( isWrite ) {
+				*(p - 1) = 0;
+				*p = 0;
+			}
 			return *p;
 			break;
 
 		case SFR_TMSTR0:
-			if( isWrite )
-				*p |= (data & 1);	// `TMSTR0` is a write-only register
-			return 0;
+			// This SFR is R/W on ES+
+			return _directRW(p, data, isWrite);
 			break;
 
-// TODO: Implement `TMSTP0` and `TMSTAT0`?
-
 		case SFR_KI0:
-			return 0xE7;
+			return *p;
 			break;
 		
 		case SFR_KI1:
