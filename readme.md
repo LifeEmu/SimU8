@@ -4,17 +4,10 @@ An nX-U8/100 emulator written in C.
 This emulator is mainly for emulating CASIO scientific calculators, and aims to be as portable as possible.  
 This has nothing to do with CASIO's `SimU8.dll`.
 
-Not finished yet.
-- Most instructions are implemented but not all of them are tested.
-- All the coprocessors instructions are **not** implemented.
-- `SWI` is now implemented.
-- Interrupts are implemented.
+### This branch has finished its job. It will be removed from this repository in the near future.
 
 ## Usage
-To use the code in your project, include the header in your source, and include corresponding source file when compiling.
-
-Example: If you want to use features from "core", include `inc/core.h` in your source file, and add `src/core.c` and `src/mmu.c`(`core.c` relies on MMU features) to input files of your C compiler (for example `gcc <your sources> src/core.c src/mmu.c -Wall -o simu8.exe` if you are using Windows).
-
+See `readme.md` in branch `master`.
 
 ## Testing
 **NOTE**: `testcore.c` uses `conio.h`, so it probably won't work unmodified under non-Windows system!
@@ -22,9 +15,9 @@ Example: If you want to use features from "core", include `inc/core.h` in your s
 **NOTE #2**: _This_ test driver aims at emulating CASIO CWI/CW X hardware, so it would work the best with a ROM dump from a real calculator.
 
 - Put the binary you want to run into the root directory of this repository and rename it to `rom.bin`. (you can change the name of the file in `testcore.c`)
-- `cd` to the repository in `cmd` and run `<your compiler> testcore.c src/mmu.c src/core.c src/lcd.c <other compiler options>`.
+- `cd` to the repository in `cmd` and run `<your compiler> testcore.c src/*.c src/SFR/*.c <other compiler options>`.
 - Run the binary that you've just got from the compiler.
-- **There is an experimental version of `testcore.c`, that displays emulated calculator LCD using Braille characters. To use it, change the command above to** `<your compiler> `_**`BrailleDisplay.c testcore_braille.c`**_` src/mmu.c src/core.c src/lcd.c <other compiler options>`
+- **There is an experimental version of `testcore.c`, that displays emulated calculator LCD using Braille characters. To use it, change the command above to** `<your compiler> `_**`BrailleDisplay.c testcore_braille.c`**_` src/*.c src/SFR/*.c <other compiler options>`
 
 
 **Commands**:
