@@ -860,7 +860,8 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0x92:
-			if( (codeWord & 0x0110) == 0x0000 ) {
+//			if( (codeWord & 0x0110) == 0x0000 ) {
+			if( (codeWord & 0x0010) == 0x0000 ) {	// 97A2
 				// L ERn, [ERm]
 				src = GR.ers[regNumSrc >> 1];
 				CycleCount += EAIncDelay;
@@ -936,8 +937,9 @@ CORE_STATUS coreStep(void) {
 					case 0x9093:
 						// ST ERn, [EA?]
 						// probably fetches from an undefined position (bit 0 = Dadr, 1 = EA, 2 = EA+)
-						dest = EA;
+//						dest = EA;
 //						EA = (EA + 2) & 0xfffe; isEAInc = true;
+						goto exit;
 						break;
 
 					default:
@@ -970,6 +972,18 @@ CORE_STATUS coreStep(void) {
 					isEAInc = true;
 					break;
 
+				case 0x9094:	// 9594
+					// L XRn, [AR]?
+					// from LAPIS' `SimU8engine.dll`
+					// AR is hacked together
+
+					// doesn't work - doesn't match real HW behavior
+//					src = AR;
+//					printf("[core] executing `%04X\tL\tXR%d,\t[AR]`, AR is %04X\n", codeWord, regNumSrc, AR);
+
+					goto exit;	// works; should do nothing??????
+					break;
+
 				// 9E64
 				case 0x9004:
 				case 0x9024:
@@ -980,12 +994,12 @@ CORE_STATUS coreStep(void) {
 				case 0x90C4:
 				case 0x90E4:
 					// ST XRn, ERm?
-					src = GR.ers[regNumSrc >> 2];
+					src = GR.ers[regNumSrc >> 1];	// commenting this out still works, but with a different pattern & doesn't enter HALT mode
 					break;
 
 
 				default:
-//					retVal = CORE_ILLEGAL_INSTRUCTION;	// 9594, should do nothing since it refers to an illegal operand
+					retVal = CORE_ILLEGAL_INSTRUCTION;	// 9594, should do nothing since it refers to an illegal operand
 					goto exit;
 			}
 
@@ -1003,8 +1017,8 @@ CORE_STATUS coreStep(void) {
 
 		case 0x95:
 			dest = EA;
-//			switch( codeWord & 0xf3ff ) {
-			switch( codeWord & 0xf0ff ) {	// bypass lower 0 bits check
+			switch( codeWord & 0xf3ff ) {
+//			switch( codeWord & 0xf0ff ) {	// bypass lower 0 bits check
 				case 0x9035:
 					// ST XRn, [EA]
 					break;
@@ -1025,11 +1039,11 @@ CORE_STATUS coreStep(void) {
 				case 0x90C5:
 				case 0x90E5:
 					// ST XRn, ERm?
-					dest = GR.ers[regNumSrc >> 2];
+					dest = GR.ers[regNumSrc >> 2];	// commmenting this out still works, but upper left byte still changes very quickly
 					break;
 
 				default:
-					retVal = CORE_ILLEGAL_INSTRUCTION;
+//					retVal = CORE_ILLEGAL_INSTRUCTION;
 					goto exit;
 			}
 
@@ -1043,7 +1057,8 @@ CORE_STATUS coreStep(void) {
 
 		case 0x96:
 			src = EA;
-			switch( codeWord & 0xf7ff ) {
+//			switch( codeWord & 0xf7ff ) {
+			switch( codeWord & 0xf0ff ) {
 				case 0x9036:
 					// L QRn, [EA]
 					break;
@@ -1052,6 +1067,11 @@ CORE_STATUS coreStep(void) {
 					// L QRn, [EA+]
 					EA = (EA + 8) & 0xfffe;
 					isEAInc = true;
+					break;
+
+				case 0x9086:	// 9286
+					// L QRn, [ERm]
+					src = GR.ers[regNumSrc >> 1];
 					break;
 
 				default:
@@ -1094,7 +1114,7 @@ CORE_STATUS coreStep(void) {
 				case 0x90C7:
 				case 0x90E7:
 					// ST QRn, ERm?
-					dest = GR.ers[regNumSrc >> 2];
+					dest = GR.ers[regNumSrc >> 1];
 					break;
 
 				default:
@@ -1110,11 +1130,11 @@ CORE_STATUS coreStep(void) {
 #endif
 			break;
 
-		case 0x98:
-			if( (codeWord & 0xf01f) != 0x9008 ) {
-				retVal = CORE_ILLEGAL_INSTRUCTION;
-				break;
-			}
+		case 0x98:	// 9358
+//			if( (codeWord & 0xf01f) != 0x9008 ) {
+//				retVal = CORE_ILLEGAL_INSTRUCTION;
+//				break;
+//			}
 			// L Rn, d16[ERm]
 			src = GR.ers[regNumSrc >> 1];
 			src = (src + memoryGetCodeWord(CSR, PC)) & 0xffff;
@@ -1126,11 +1146,11 @@ CORE_STATUS coreStep(void) {
 			CycleCount = 2 + ROMWinAccessCount + EAIncDelay;
 			break;
 
-		case 0x99:
-			if( (codeWord & 0xf01f) != 0x9009 ) {
-				retVal = CORE_ILLEGAL_INSTRUCTION;
-				break;
-			}
+		case 0x99:	// 9279
+//			if( (codeWord & 0xf01f) != 0x9009 ) {
+//				retVal = CORE_ILLEGAL_INSTRUCTION;
+//				break;
+//			}
 			// ST Rn, d16[ERm]
 			dest = GR.ers[regNumSrc >> 1];
 			dest = (dest + memoryGetCodeWord(CSR, PC)) & 0xffff;
@@ -1158,7 +1178,8 @@ CORE_STATUS coreStep(void) {
 //			}
 			// SLLC Rn, #width
 			CycleCount = 1 + EAIncDelay;
-			src = regNumSrc;
+//			src = regNumSrc;
+			src = regNumSrc & 7;	// account for illegal instruction
 			if( src == 0 ) {
 				break;
 			}
@@ -1331,11 +1352,11 @@ CORE_STATUS coreStep(void) {
 			retVal = CORE_UNIMPLEMENTED;
 			break;
 
-		case 0xa7:
-			if( (codeWord & 0x00f0) != 0x0000 ) {
-				retVal = CORE_ILLEGAL_INSTRUCTION;
-				break;
-			}
+		case 0xa7:	// A117
+//			if( (codeWord & 0x00f0) != 0x0000 ) {
+//				retVal = CORE_ILLEGAL_INSTRUCTION;
+//				break;
+//			}
 			// MOV Rn, ECSR
 			GR.rs[regNumDest] = *_getCurrECSR();
 #ifdef CORE_IS_U16
@@ -1345,11 +1366,11 @@ CORE_STATUS coreStep(void) {
 #endif
 			break;
 
-		case 0xa8:
-			if( (codeWord & 0xf11f) != 0xa008 ) {
-				retVal = CORE_ILLEGAL_INSTRUCTION;
-				break;
-			}
+		case 0xa8:	// A348
+//			if( (codeWord & 0xf11f) != 0xa008 ) {
+//				retVal = CORE_ILLEGAL_INSTRUCTION;
+//				break;
+//			}
 			// L ERn, d16[ERm]
 			src = GR.ers[regNumSrc >> 1];
 			src = (src + memoryGetCodeWord(CSR, PC)) & 0xffff;
@@ -1385,15 +1406,15 @@ CORE_STATUS coreStep(void) {
 #endif
 				break;
 			}
-			if( (codeWord & 0x0f10) == 0x0100 ) {
+//			if( (codeWord & 0x0f10) == 0x0100 ) {	// AB2A
+			if( (codeWord & 0x0100) == 0x0100 ) {
+
 				// MOV SP, ERm
 				setSP(GR.ers[regNumSrc >> 1]);
 				CycleCount = 1;
 				break;
 			}
-			// AB2A
-			// Illegal instruction but dunno what it does
-//			retVal = CORE_ILLEGAL_INSTRUCTION;
+			retVal = CORE_ILLEGAL_INSTRUCTION;
 			break;
 
 		case 0xab:
@@ -1418,11 +1439,10 @@ CORE_STATUS coreStep(void) {
 			break;
 
 		case 0xad:
-			if( (codeWord & 0x01f0) != 0x0000 ) {
-				// A26D
-//				retVal = CORE_ILLEGAL_INSTRUCTION;	// illegal opcode, but don't know what it does
-				break;
-			}
+//			if( (codeWord & 0x01f0) != 0x0000 ) {	// A26D
+//				retVal = CORE_ILLEGAL_INSTRUCTION;
+//				break;
+//			}
 			// MOV ELR, ERm
 			*_getCurrELR() = GR.ers[regNumDest >> 1];
 #ifdef CORE_IS_U16
@@ -1741,7 +1761,10 @@ CORE_STATUS coreStep(void) {
 						break;
 					}
 
-					retVal = CORE_ILLEGAL_INSTRUCTION;
+					// else it's `AND PSW, #imm8`
+					PSW.raw &= immNum;
+					CycleCount = 1;
+//					retVal = CORE_ILLEGAL_INSTRUCTION;
 					break;
 
 				case 0x0d00:
@@ -1759,7 +1782,10 @@ CORE_STATUS coreStep(void) {
 						break;
 					}
 
-					retVal = CORE_ILLEGAL_INSTRUCTION;
+					// else it's `OR PSW, #imm8`
+					PSW.raw |= immNum;
+					CycleCount = 1;
+//					retVal = CORE_ILLEGAL_INSTRUCTION;
 					break;
 			}
 			break;
@@ -2220,8 +2246,8 @@ CORE_STATUS coreStep(void) {
 					CycleCount = 7 + EAIncDelay;
 					break;
 
-				default:
-					retVal = CORE_ILLEGAL_INSTRUCTION;
+				default:	// temporary, will ignore any illegal FxxF instructions
+//					retVal = CORE_ILLEGAL_INSTRUCTION;
 					break;
 
 			}
