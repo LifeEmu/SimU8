@@ -1,6 +1,10 @@
 #ifndef MMUSTUB_H_DEFINED
 #define MMUSTUB_H_DEFINED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 // A value of this type identifies a file.
 // - For computer systems, it can be `char*`;
@@ -76,5 +80,9 @@ extern void stub_mmuFreeCodeMemory(void *p);
 /// @param p A pointer to data memory.
 extern void stub_mmuFreeDataMemory(void *p);
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

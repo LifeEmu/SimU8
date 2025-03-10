@@ -8,8 +8,8 @@
 #include "memmap.h"
 
 
-void *CodeMemory = NULL;
-void *DataMemory = NULL;
+uint8_t *CodeMemory = NULL;
+uint8_t *DataMemory = NULL;
 bool IsMemoryInited = false;
 // Status of last memory operation
 MEMORY_STATUS MemoryStatus;

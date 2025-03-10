@@ -1,6 +1,10 @@
 #ifndef CORE_H_INCLUDED
 #define CORE_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 #include <stdbool.h>
 
@@ -48,5 +52,9 @@ void coreDoNMI(void);
 bool coreDoMI(uint8_t index);
 void coreDoSWI(uint8_t index);
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

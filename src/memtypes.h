@@ -1,6 +1,10 @@
 #ifndef MEMTYPES_H_INCLUDED
 #define MEMTYPES_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 typedef enum {
 	MEMORY_OK,
@@ -16,5 +20,9 @@ typedef enum {
 	MEMORY_READ_ONLY
 } MEMORY_STATUS;
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

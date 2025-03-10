@@ -1,6 +1,10 @@
 #ifndef CORETYPES_H_INCLUDED
 #define CORETYPES_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 #include "regtypes.h"
 
@@ -30,5 +34,9 @@ typedef struct {
 	PSW_t EPSWs[3];	// EPSW1, EPSW2, EPSW3
 	GR_t GR;
 } CoreRegister_t;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

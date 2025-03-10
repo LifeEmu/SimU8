@@ -1,6 +1,10 @@
 #ifndef MEMMAP_H_DEFINED
 #define MEMMAP_H_DEFINED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -56,5 +60,9 @@ uint8_t defaultHandler(uint32_t address, uint8_t data, bool isWrite);
 // Implement this yourself
 extern uint8_t SFRHandler(uint32_t address, uint8_t data, bool isWrite);
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

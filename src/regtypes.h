@@ -1,6 +1,10 @@
 #ifndef REGTYPES_H_INCLUDED
 #define REGTYPES_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 #include <stdint.h>
 
@@ -27,5 +31,10 @@ typedef union {
 	uint8_t rs[16];
 } GR_t;
 // Note: This only works on little-endian machines
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
